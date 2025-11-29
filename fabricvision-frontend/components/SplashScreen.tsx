@@ -8,7 +8,7 @@ export default function SplashScreen() {
     const [animationComplete, setAnimationComplete] = useState(false);
     const [showSplash, setShowSplash] = useState(true);
 
-    const letters = ["G", "E", "S", "I"];
+    const letters = ["F", "A", "B", "R", "I", "C"];
     const letterDelay = 0.5; // seconds between each letter
     const letterDuration = 0.8; // seconds for each letter animation
     const totalAnimationTime = letters.length * letterDelay + letterDuration;
@@ -30,7 +30,7 @@ export default function SplashScreen() {
                 {/* Spinner */}
                 <div className="w-12 h-12 border-4 border-black border-t-transparent rounded-full animate-spin"></div>
 
-                {/* Animated G E S I letters */}
+                {/* Animated F A B R I C letters */}
                 <div className="flex gap-4">
                     {letters.map((letter, index) => (
                         <motion.div
@@ -51,12 +51,12 @@ export default function SplashScreen() {
                                 damping: 10,
                             }}
                             className={`relative sm:text-7xl text-5xl font-extrabold ${
-                                letter === "S"
-                                    ? "bg-clip-text text-transparent bg-[linear-gradient(90deg,#007a3d_0%,#007a3d_20%,#ff8c00_20%,#ff8c00_35%,#8d1b3d_35%,#8d1b3d_95%,#ffd700_95%,#ffd700_100%)]"
+                                letter === "F"
+                                    ? "bg-clip-text text-transparent bg-[linear-gradient(90deg,#FFBE29_0%,#FFBE29_33%,#8D153A_33%,#8D153A_66%,#00534F_66%,#00534F_100%)]"
                                     : "text-black"
                             }`}
                         >
-                            {letter === "G" && (
+                            {letter === "F" && (
                                 <motion.div
                                     initial={{ opacity: 0, y: -10, scale: 0.8 }}
                                     animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -66,14 +66,10 @@ export default function SplashScreen() {
                                     }}
                                     className="absolute -top-6 left-1/2 transform -translate-x-1/2"
                                 >
-                                    {/* Police Cap Icon */}
-                                    <Image
-                                        src=""
-                                        alt="Police Cap"
-                                        width={72}
-                                        height={72}
-                                        className="object-contain"
-                                    />
+                                    {/* Fabric Icon */}
+                                    <div className="w-16 h-16 bg-gradient-to-r from-yellow-500 via-red-700 to-green-700 rounded-lg flex items-center justify-center">
+                                        <div className="w-12 h-12 bg-white rounded-sm"></div>
+                                    </div>
                                 </motion.div>
                             )}
                             {letter}
@@ -92,7 +88,7 @@ export default function SplashScreen() {
                 }}
                 className="mt-6 text-gray-600 font-semibold"
             >
-                Gender Responsive Service Delivery for Inclusion
+                AI-Powered Fabric Defect Detection System
             </motion.p>
         </div>
     );
