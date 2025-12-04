@@ -1,0 +1,56 @@
+project/
+│
+├── fogcomputing/          ← Handles Fog/Edge processing logic
+│   ├── __init__.py
+│   └── fog_engine.py
+│
+├── futureprediction/      ← Predicts future defects / trends
+│   ├── __init__.py
+│   └── predictor.py
+│
+├── fabricdetection/       ← Main defect detection engine
+│   ├── __init__.py
+│   ├── utils.py
+│   │
+│   ├── base_detector/     ← Generic detection logic
+│   │   ├── __init__.py
+│   │   └── detector.py
+│   │
+│   ├── member1_model/     ← Model assigned to Member 1
+│   │   ├── __init__.py
+│   │   └── detector.py
+│   │
+│   ├── member2_model/     ← Model assigned to Member 2 (optional)
+│   │       ├── __init__.py
+│   │       └── detector.py
+│
+├── app.py                 ← Main application entry point
+└── requirements.txt
+
+
+
+Install Python
+
+Download Python 3.11.9 from:
+https://www.python.org/downloads/
+
+During installation tick “Add Python to PATH”
+
+Finish installation.
+
+
+
+
+Install Project Dependencies
+
+Open Terminal / CMD inside the project folder and run:
+
+pip install -r requirements.txt
+
+
+How to Run the Project
+✔ Step 1: Go inside the project folder
+
+
+✔ Step 2: Run the application
+python app.py
