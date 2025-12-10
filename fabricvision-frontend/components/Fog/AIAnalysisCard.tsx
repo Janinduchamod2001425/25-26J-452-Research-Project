@@ -1,4 +1,4 @@
-import MetricCard from "./MetricCard";
+import AnimatedMetricCard from "./AnimatedMetricCard";
 
 export default function AIAnalysisCard() {
   return (
@@ -18,23 +18,24 @@ export default function AIAnalysisCard() {
         </div>
 
         <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <MetricCard
+          <AnimatedMetricCard
             title="Brightness Balance"
-            value="91%"
+            value={91}
             color="text-sky-600"
             note="Target: 90–110%"
           />
-          <MetricCard
+          <AnimatedMetricCard
             title="Texture Clarity"
-            value="87%"
+            value={87}
             color="text-emerald-600"
-            note="Edge density & detail"
+            note="Based on edge density & detail"
           />
-          <MetricCard
+
+          <AnimatedMetricCard
             title="Frame Quality Score"
-            value="89/100"
+            value={89}
             color="text-indigo-600"
-            note="Quality composite"
+            note="Brightness + texture + noise"
           />
 
           <div className="md:col-span-3">
