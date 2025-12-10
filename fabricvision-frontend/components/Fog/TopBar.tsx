@@ -10,7 +10,7 @@ export default function TopBar() {
         </p>
       </div>
 
-      <div className="flex items-center space-x-3">
+      {/* <div className="flex items-center space-x-3">
         <button className="p-2 rounded-full bg-slate-100 text-slate-600">
           🔍
         </button>
@@ -18,7 +18,7 @@ export default function TopBar() {
           🔔
         </button>
         <div className="w-9 h-9 rounded-full bg-slate-300" />
-      </div>
+      </div> */}
     </div>
   );
 }
