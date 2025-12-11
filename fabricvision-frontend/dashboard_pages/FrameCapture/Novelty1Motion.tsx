@@ -132,7 +132,7 @@ const fadeIn: Variants = {
 const Card: React.FC<CardProps> = ({ children, className = "" }) => (
   <motion.div
     variants={fadeIn}
-    className={`rounded-2xl bg-white/80 shadow-lg p-6 border border-gray-200 ${className}`}
+    className={`rounded-2xl  shadow-lg p-6 border border-gray-200 ${className}`}
   >
     {children}
   </motion.div>
@@ -310,11 +310,11 @@ const motionTimelineOptions: ChartOptions<"line"> = {
 const Novelty1Motion: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
 
-  // 3-second loading spinner
+  // 2-second loading spinner
   useEffect(() => {
     const timer = setTimeout(() => {
       setLoading(false);
-    }, 3000);
+    }, 2000);
     return () => clearTimeout(timer);
   }, []);
 

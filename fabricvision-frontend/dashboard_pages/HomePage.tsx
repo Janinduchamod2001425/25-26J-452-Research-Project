@@ -1,7 +1,30 @@
 "use client";
+
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import { Inter } from "next/font/google";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  PointElement,
+  LineElement,
+  Tooltip,
+  Legend,
+} from "chart.js";
+import { Bar, Line } from "react-chartjs-2";
+
+// Register Chart.js
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  PointElement,
+  LineElement,
+  Tooltip,
+  Legend,
+);
 
 // -------------------- Fonts --------------------
 const inter = Inter({
@@ -17,362 +40,349 @@ interface CardProps {
   className?: string;
 }
 
-interface LogEntryProps {
-  time: string;
-  message: string;
-}
-
-// -------------------- Animations --------------------
+// -------------------- Animation --------------------
 const fadeIn: Variants = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.6 } },
-  exit: { opacity: 0, y: -20, transition: { duration: 0.4 } },
 };
 
-// -------------------- Reusable Components --------------------
+// -------------------- Reusable Card --------------------
 const Card: React.FC<CardProps> = ({ children, className = "" }) => (
   <motion.div
     variants={fadeIn}
-    className={`rounded-2xl bg-white/80 shadow-lg p-7 border border-gray-200 ${className}`}
+    className={`rounded-2xl bg-white shadow-md p-7 border border-gray-200 ${className}`}
   >
     {children}
   </motion.div>
 );
 
-const LogEntry: React.FC<LogEntryProps> = ({ time, message }) => (
-  <div className="flex justify-between text-sm text-gray-600 py-1 border-b border-gray-100">
-    <span className="font-mono">{time}</span>
-    <span>{message}</span>
-  </div>
-);
+// -------------------- Historical Data --------------------
+const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-const OperatorDashboard: React.FC = () => {
-  const [loading, setLoading] = useState<boolean>(true);
+const inspectionData = {
+  labels: days,
+  datasets: [
+    {
+      label: "Frames Inspected",
+      data: [4200, 3900, 4500, 4800, 5100, 4700, 4300],
+      backgroundColor: "rgba(59, 130, 246, 0.7)",
+      borderRadius: 6,
+    },
+    {
+      label: "Defective Frames",
+      data: [210, 180, 260, 300, 330, 280, 220],
+      backgroundColor: "rgba(239, 68, 68, 0.7)",
+      borderRadius: 6,
+    },
+  ],
+};
 
-  // 3-second loading spinner
+const defectTrendData = {
+  labels: days,
+  datasets: [
+    {
+      label: "Defect Rate (%)",
+      data: [4.8, 4.3, 5.2, 5.8, 6.1, 5.7, 5.0],
+      borderColor: "#10b981",
+      pointBackgroundColor: "#047857",
+      pointBorderColor: "#fff",
+      backgroundColor: "rgba(16,185,129,0.15)",
+      tension: 0.35,
+      borderWidth: 3,
+      fill: true,
+    },
+  ],
+};
+
+// -------------------- REALISTIC OVERLAY HEATMAP --------------------
+const ContourHeatmap: React.FC = () => {
+  const canvasRef = React.useRef<HTMLCanvasElement>(null);
+
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 3000);
-    return () => clearTimeout(timer);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const w = canvas.width;
+    const h = canvas.height;
+
+    const img = new Image();
+    img.src = "/fabric/img.png"; // must be inside /public folder
+
+    img.onload = () => {
+      // Draw background fabric image
+      ctx.drawImage(img, 0, 0, w, h);
+
+      // Grayscale conversion of the background
+      const frame = ctx.getImageData(0, 0, w, h);
+      const px = frame.data;
+
+      for (let i = 0; i < px.length; i += 4) {
+        const avg = (px[i] + px[i + 1] + px[i + 2]) / 3;
+        px[i] = avg;
+        px[i + 1] = avg;
+        px[i + 2] = avg;
+      }
+      ctx.putImageData(frame, 0, 0);
+
+      // ---------- CONTOUR INTENSITY FIELD ----------
+      const intensity = new Float32Array(w * h);
+
+      // More organic anomaly shapes
+      const blobs = [
+        { x: 150, y: 80, r: 140 },
+        { x: 330, y: 120, r: 220 },
+        { x: 490, y: 70, r: 150 },
+      ];
+
+      blobs.forEach((b) => {
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            const dx = x - b.x;
+            const dy = y - b.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            let v = Math.max(0, 1 - dist / b.r);
+            v = Math.pow(v, 1.7); // softer rolloff
+
+            intensity[y * w + x] += v;
+          }
+        }
+      });
+
+      // ---------- FINAL HEATMAP COLORING (CONTOUR STYLE) ----------
+      const heatmap = ctx.getImageData(0, 0, w, h);
+      const d = heatmap.data;
+
+      const contour = (v: number) => {
+        // v: 0 → 1 normalized
+
+        if (v < 0.15) return { r: 255, g: 255, b: 150, a: 90 }; // very light yellow
+        if (v < 0.35) return { r: 255, g: 220, b: 120, a: 110 }; // gold
+        if (v < 0.55) return { r: 255, g: 160, b: 60, a: 130 }; // orange
+        if (v < 0.8) return { r: 255, g: 100, b: 40, a: 160 }; // deep orange-red
+        return { r: 255, g: 40, b: 40, a: 180 }; // strong red (peak)
+      };
+
+      for (let i = 0; i < intensity.length; i++) {
+        let v = Math.min(1, intensity[i] * 1.25);
+
+        if (v > 0.05) {
+          const idx = i * 4;
+          const col = contour(v);
+
+          d[idx] = col.r;
+          d[idx + 1] = col.g;
+          d[idx + 2] = col.b;
+          d[idx + 3] = col.a;
+        }
+      }
+
+      ctx.putImageData(heatmap, 0, 0);
+
+      // Final blur pass for contour blending
+      ctx.globalAlpha = 0.5;
+      ctx.filter = "blur(10px)";
+      ctx.drawImage(canvas, 0, 0);
+      ctx.filter = "none";
+      ctx.globalAlpha = 1;
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={600}
+      height={200}
+      className="w-full h-[150px] rounded-xl"
+    />
+  );
+};
+
+// -------------------- Component --------------------
+const HomeDashboard: React.FC = () => {
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 1800);
+    return () => clearTimeout(t);
   }, []);
 
   if (loading) {
     return (
-      <motion.div
-        className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-blue-50"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-      >
+      <motion.div className="flex items-center justify-center min-h-screen bg-gray-50">
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
           className="h-12 w-12 border-4 border-indigo-500 rounded-full border-t-transparent"
-        ></motion.div>
+        />
       </motion.div>
     );
   }
 
+  // -------------------- PAGE --------------------
   return (
-    <AnimatePresence mode="wait">
+    <AnimatePresence>
       <motion.div
-        key="operator-dashboard"
         initial="hidden"
         animate="visible"
-        exit="exit"
         variants={fadeIn}
         className={`p-6 min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 ${inter.className}`}
       >
-        {/* -------------------- HEADER -------------------- */}
+        {/* HEADER */}
         <div className="max-w-[1500px] mx-auto mb-8">
-          <motion.h1
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="text-gray-600 text-sm font-mono mb-2"
-          >
-            Real-time Monitoring & Diagnostics
-          </motion.h1>
-
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="text-4xl md:text-5xl font-bold text-gray-800 mb-1"
-          >
-            Operator Dashboard
-          </motion.h1>
-
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="text-lg font-semibold text-gray-600"
-          >
-            System Performance • Frame Analytics • Live Monitoring
-          </motion.p>
+          <h1 className="text-sm font-mono text-gray-600 mb-1">Overview</h1>
+          <h1 className="text-4xl font-bold text-gray-800 mb-1">
+            Home Dashboard
+          </h1>
+          <p className="text-lg font-semibold text-gray-600">
+            Summary • Insights • Factory Performance
+          </p>
         </div>
 
-        {/* -------------------- MAIN GRID -------------------- */}
+        {/* MAIN GRID (3 COLUMNS) */}
         <div className="max-w-[1500px] mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* LEFT COLUMN */}
+          {/* LEFT COLUMN – Historical Performance */}
           <div className="space-y-6">
-            {/* System Performance */}
-            <Card className="min-h-[280px]">
-              <h3 className="text-xl font-bold text-gray-800 mb-6">
-                System Performance
-              </h3>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center py-3 px-4 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50">
-                  <span className="font-semibold text-gray-700">
-                    Capture Efficiency
-                  </span>
-                  <span className="text-2xl font-bold text-gray-800">84%</span>
-                </div>
-                <div className="flex justify-between items-center py-3 px-4 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50">
-                  <span className="font-semibold text-gray-700">
-                    Upload Success
-                  </span>
-                  <span className="text-2xl font-bold text-gray-800">96%</span>
-                </div>
-                <div className="flex justify-between items-center py-3 px-4 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50">
-                  <span className="font-semibold text-gray-700">
-                    Average Latency
-                  </span>
-                  <span className="text-2xl font-bold text-gray-800">
-                    145 ms
-                  </span>
-                </div>
-              </div>
-            </Card>
-
-            {/* Frame Quality Summary */}
-            <Card className="min-h-[240px]">
+            {/* Week Summary Chart */}
+            <Card className="min-h-[300px]">
               <h3 className="text-xl font-bold text-gray-800 mb-4">
-                Frame Quality Summary
+                Weekly Fabric Inspection Summary
               </h3>
-              <div className="space-y-4">
-                <div className="rounded-xl bg-gradient-to-r from-green-50 to-emerald-50 p-4">
-                  <h4 className="text-sm font-semibold text-gray-600 mb-3">
-                    Camera Health Diagnostics
-                  </h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="text-center">
-                      <div className="text-3xl font-bold text-gray-800 mb-1">
-                        0.95
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        Lighting Focus
-                      </div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-lg font-bold text-green-600 mb-1">
-                        GOOD
-                      </div>
-                      <div className="text-xs text-gray-500">Stabilization</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <Bar
+                data={inspectionData}
+                options={{
+                  responsive: true,
+                  plugins: { legend: { position: "bottom" } },
+                }}
+              />
+              <p className="text-xs text-gray-500 mt-4">
+                Shows total inspected frames vs detected anomalies during the
+                last 7 days.
+              </p>
             </Card>
 
-            {/* Frame Uploaded */}
-            <Card className="min-h-[220px]">
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="text-xl font-bold text-gray-800">
-                  Frame Uploaded
-                </h3>
-                <div className="px-3 py-1 rounded-full bg-red-100 text-red-600 text-sm font-bold">
-                  DISK LEVEL: LOW
+            {/* Defect Rate Trend */}
+            <Card className="min-h-[300px]">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">
+                Defect Rate Trend (Past 7 Days)
+              </h3>
+              <Line
+                data={defectTrendData}
+                options={{
+                  responsive: true,
+                  plugins: { legend: { display: false } },
+                }}
+              />
+              <p className="text-xs text-gray-500 mt-4">
+                Average defect rate this week:{" "}
+                <span className="font-semibold">5.1%</span>
+              </p>
+            </Card>
+          </div>
+
+          {/* MIDDLE COLUMN – Latest Fabric Roll */}
+          <div className="space-y-6">
+            {/* Latest Roll Summary */}
+            <Card className="min-h-[300px]">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">
+                Latest Fabric Roll Summary
+              </h3>
+
+              <div className="flex items-center gap-6">
+                {/* RQI Score Ring */}
+                <div className="w-28 h-28 rounded-full border-[10px] border-green-400 flex items-center justify-center text-3xl font-bold text-green-600">
+                  0.91
                 </div>
-              </div>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                  <span className="text-gray-700">Avg FQI</span>
-                  <span className="font-bold text-gray-800">0.91</span>
-                </div>
-                <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                  <span className="text-gray-700">Avg Anomaly</span>
-                  <span className="font-bold text-gray-800">0.26</span>
-                </div>
-                <div className="pt-2">
-                  <p className="text-xs text-gray-500">
-                    Role Quality Index (RQI) metrics for frame stability
-                    assessment
+
+                <div className="flex-1 space-y-2">
+                  <p className="text-sm text-gray-700">
+                    <span className="font-semibold">Dominant Defect:</span> Knot
+                  </p>
+                  <p className="text-sm text-gray-700">
+                    <span className="font-semibold">Frames processed:</span>{" "}
+                    4,850
+                  </p>
+                  <p className="text-sm text-gray-700">
+                    <span className="font-semibold">Anomalies found:</span> 214
                   </p>
                 </div>
               </div>
-            </Card>
-          </div>
 
-          {/* MIDDLE COLUMN */}
-          <div className="space-y-6">
-            {/* Texture Density Index */}
-            <Card className="min-h-[240px]">
-              <h3 className="text-xl font-bold text-gray-800 mb-6">
-                Texture Density Index
-              </h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="rounded-2xl bg-gradient-to-br from-purple-50 to-pink-50 p-4 text-center">
-                  <div className="text-3xl font-bold text-gray-800 mb-1">
-                    0.87
-                  </div>
-                  <div className="text-sm font-semibold text-gray-600">TDI</div>
-                </div>
-                <div className="rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 p-4 text-center">
-                  <div className="text-3xl font-bold text-gray-800 mb-1">
-                    0.97
-                  </div>
-                  <div className="text-sm font-semibold text-gray-600">
-                    Entropy
-                  </div>
-                </div>
-                <div className="rounded-2xl bg-gradient-to-br from-cyan-50 to-blue-50 p-4 text-center">
-                  <div className="text-3xl font-bold text-gray-800 mb-1">
-                    1.12
-                  </div>
-                  <div className="text-sm font-semibold text-gray-600">
-                    GLCM
-                  </div>
-                </div>
-                <div className="rounded-2xl bg-gradient-to-br from-emerald-50 to-green-50 p-4 text-center">
-                  <div className="text-2xl font-bold text-gray-800 mb-1">
-                    Contrast
-                  </div>
-                  <div className="text-sm font-semibold text-gray-600">
-                    Index
-                  </div>
-                </div>
+              <div className="mt-6 rounded-xl overflow-hidden border border-gray-300 bg-black/80">
+                <ContourHeatmap />
               </div>
+
+              <p className="text-xs text-gray-500 mt-2">
+                Heatmap represents concentrated irregularity zones detected in
+                the last inspected roll.
+              </p>
             </Card>
 
-            {/* Live Logs */}
-            <Card className="min-h-[340px]">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold text-gray-800">Live Logs</h3>
-                <div className="flex items-center space-x-2">
-                  <div className="h-2 w-2 bg-red-500 rounded-full animate-pulse"></div>
-                  <span className="text-sm font-semibold text-gray-600">
-                    LIVE
-                  </span>
-                </div>
-              </div>
-              <div className="space-y-1 max-h-[280px] overflow-y-auto pr-2">
-                <LogEntry time="09:58:19" message="Fabric Detected" />
-                <LogEntry time="09:58:19" message="Cut-piece Mode Enabled" />
-                <LogEntry time="09:58:19" message="Start Frame Extraction" />
-                <LogEntry time="09:58:19" message="Frames Uploading ..." />
-                <LogEntry time="09:58:19" message="Uploaded Successfully" />
-                <LogEntry time="09:58:19" message="Stay IDLE" />
-              </div>
-            </Card>
-          </div>
-
-          {/* RIGHT COLUMN */}
-          <div className="space-y-6">
-            {/* Session Info */}
-            <Card className="min-h-[280px]">
-              <h3 className="text-xl font-bold text-gray-800 mb-6">
-                Session Info
-              </h3>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center py-3 border-b border-gray-100">
-                  <span className="font-semibold text-gray-700">
-                    Visual Clarity
-                  </span>
-                  <span className="px-3 py-1 rounded-full bg-green-100 text-green-700 font-semibold text-sm">
-                    Good
-                  </span>
-                </div>
-                <div className="flex justify-between items-center py-3 border-b border-gray-100">
-                  <span className="font-semibold text-gray-700">
-                    Calibration Time
-                  </span>
-                  <span className="font-bold text-gray-800">10 min</span>
-                </div>
-                <div className="flex justify-between items-center py-3 border-b border-gray-100">
-                  <span className="font-semibold text-gray-700">Timestamp</span>
-                  <span className="font-mono font-bold text-gray-800">
-                    10:20:52
-                  </span>
-                </div>
-                <div className="py-2">
-                  <div className="h-6"></div>
-                </div>
-                <div className="py-2">
-                  <div className="h-6"></div>
-                </div>
-              </div>
-            </Card>
-
-            {/* Production Info */}
-            <Card className="min-h-[220px]">
-              <h3 className="text-xl font-bold text-gray-800 mb-6">
-                Production Overview
-              </h3>
-              <div className="space-y-6 text-center">
-                <div>
-                  <div className="text-5xl font-bold text-gray-800 mb-2">
-                    1350
-                  </div>
-                  <div className="text-lg font-semibold text-gray-600">
-                    Cut-Piece
-                  </div>
-                </div>
-                <div>
-                  <div className="text-3xl font-bold text-gray-800 mb-2">
-                    08
-                  </div>
-                  <div className="text-lg font-semibold text-gray-600">
-                    Fabric-Roll
-                  </div>
-                </div>
-              </div>
-            </Card>
-
-            {/* Status Indicators */}
-            <Card className="min-h-[120px]">
+            {/* Recent Activity Log */}
+            <Card className="min-h-[260px]">
               <h3 className="text-xl font-bold text-gray-800 mb-4">
-                System Status
+                Recent Activity
               </h3>
-              <div className="flex items-center justify-between">
-                <div className="text-center">
-                  <div className="h-3 w-3 bg-green-500 rounded-full mx-auto mb-2"></div>
-                  <div className="text-xs font-semibold text-gray-600">
-                    Active
-                  </div>
+              <ul className="text-sm text-gray-700 space-y-2">
+                <li>✔ Roll #32 completed inspection.</li>
+                <li>✔ System ran continuously for 6.2 hours.</li>
+                <li>✔ Camera clarity stable at 96%.</li>
+                <li>⚠ Minor tension irregularities detected in Roll #31.</li>
+              </ul>
+            </Card>
+          </div>
+
+          {/* RIGHT COLUMN – System Overview */}
+          <div className="space-y-6">
+            {/* System Stability */}
+            <Card className="min-h-[260px]">
+              <h3 className="text-xl font-bold text-gray-800 mb-6">
+                System Stability Overview
+              </h3>
+
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-700">Uptime (Week)</span>
+                  <span className="text-xl font-bold text-blue-600">97%</span>
                 </div>
-                <div className="text-center">
-                  <div className="h-3 w-3 bg-blue-500 rounded-full mx-auto mb-2"></div>
-                  <div className="text-xs font-semibold text-gray-600">
-                    Connected
-                  </div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-700">Processing Efficiency</span>
+                  <span className="text-xl font-bold text-indigo-600">92%</span>
                 </div>
-                <div className="text-center">
-                  <div className="h-3 w-3 bg-amber-500 rounded-full mx-auto mb-2"></div>
-                  <div className="text-xs font-semibold text-gray-600">
-                    Monitoring
-                  </div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-700">Camera Reliability</span>
+                  <span className="text-xl font-bold text-green-600">95%</span>
                 </div>
               </div>
+            </Card>
+
+            {/* Recommendations */}
+            <Card className="min-h-[240px]">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">
+                Recommendations
+              </h3>
+
+              <ul className="text-sm text-gray-700 space-y-3">
+                <li>• Clean camera lens before starting next shift.</li>
+                <li>• Monitor tension in Roll #31 (unstable texture zones).</li>
+                <li>• Recalibrate brightness if ambient light changes.</li>
+              </ul>
             </Card>
           </div>
         </div>
 
         {/* FOOTER */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="max-w-[1500px] mx-auto mt-10 pt-6 border-t border-gray-200 text-sm text-gray-500"
-        >
-          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
+        <motion.div className="max-w-[1500px] mx-auto mt-10 pt-6 border-t border-gray-200 text-sm text-gray-500">
+          <div className="flex justify-between">
             <span>
-              <strong>Operator Dashboard v1.0</strong> — Real-time Monitoring &
-              Diagnostics
+              <strong>Home Dashboard v1.0</strong>
             </span>
-            <span className="font-mono">
-              Session ID: OP-2024-03-15-001 • Updated Today 10:25:30
-            </span>
+            <span className="font-mono">Updated Today • 10:25:30</span>
           </div>
         </motion.div>
       </motion.div>
@@ -380,4 +390,4 @@ const OperatorDashboard: React.FC = () => {
   );
 };
 
-export default OperatorDashboard;
+export default HomeDashboard;
