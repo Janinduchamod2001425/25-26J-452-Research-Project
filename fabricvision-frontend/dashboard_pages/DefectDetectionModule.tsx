@@ -1,80 +1,134 @@
-import AnnotatedDefectImage from "@/components/DefectDetect/AnnotatedDefectImage";
-import AverageDefects from "@/components/DefectDetect/AverageDefects";
-import DefectClassification from "@/components/DefectDetect/DefectClassification";
-import DefectDetail from "@/components/DefectDetect/DefectDetail";
-import DetectionHistoryMonitor from "@/components/DefectDetect/DetectionHistoryMonitor";
-import EncoderPulseMonitor from "@/components/DefectDetect/EncoderPulseMonitor";
-import React from "react";
+"use client";
 
-const DefectDetectionModule = () => {
+import React, { useEffect, useState } from "react";
+import { motion, AnimatePresence, Variants } from "framer-motion";
+import { Inter } from "next/font/google";
+import { FiFileText, FiActivity, FiBarChart2, FiSettings } from "react-icons/fi";
+import DefectReportingTab from "./DefectDetection/DefectReportingTab";
+import RealTimeDashboard from "./DefectDetection/RealTimeDashboard";
+import HistoryAnalytics from "./DefectDetection/HistoryAnalytics";
+import SystemConfiguration from "./DefectDetection/SystemConfiguration";
+
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  display: "swap",
+  variable: "--font-inter",
+});
+
+const fadeIn: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
+  exit: { opacity: 0, y: -20, transition: { duration: 0.3 } },
+};
+
+const subTabs = [
+  { key: "reporting", label: "Defect Reporting", icon: FiFileText },
+  { key: "dashboard", label: "Real-time Dashboard", icon: FiActivity },
+  { key: "history", label: "History & Analytics", icon: FiBarChart2 },
+  { key: "config", label: "System Configuration", icon: FiSettings },
+];
+
+const DefectDetectionModule: React.FC = () => {
+  const [loading, setLoading] = useState<boolean>(true);
+  const [activeSubTab, setActiveSubTab] = useState<string>("dashboard");
+
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 1200);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const activeTab = subTabs.find((t) => t.key === activeSubTab);
+  const ActiveIcon = activeTab?.icon || FiActivity;
+
+  const renderSubContent = () => {
+    switch (activeSubTab) {
+      case "reporting":
+        return <DefectReportingTab />;
+      case "dashboard":
+        return <RealTimeDashboard />;
+      case "history":
+        return <HistoryAnalytics />;
+      case "config":
+        return <SystemConfiguration />;
+      default:
+        return <RealTimeDashboard />;
+    }
+  };
+
+  if (loading) {
+    return (
+      <motion.div
+        className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/20"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+      >
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+          className="h-12 w-12 border-4 border-indigo-500 rounded-full border-t-transparent"
+        />
+      </motion.div>
+    );
+  }
+
   return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/20 p-4 md:p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Defect Detection Dashboard</h1>
-            <p className="text-gray-600">Real-time fabric inspection and quality control system</p>
+    <AnimatePresence mode="wait">
+      <motion.div
+        key="defect-module"
+        initial="hidden"
+        animate="visible"
+        exit="exit"
+        variants={fadeIn}
+        className={`p-6 min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/20 ${inter.className}`}
+      >
+        <div className="max-w-[1500px] mx-auto mb-6">
+          <h1 className="text-gray-600 text-sm font-mono mb-1">
+            Component 3 • Defect Detection Module
+          </h1>
+
+          <div className="flex items-center gap-3">
+            <ActiveIcon className="text-2xl text-indigo-600" />
+            <h2 className="text-3xl font-bold text-gray-800">{activeTab?.label}</h2>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-lg">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="text-sm font-medium">System Active</span>
-            </div>
-            <div className="text-sm text-gray-500">
-              Last updated: Just now
-            </div>
+
+          <p className="text-lg font-semibold text-gray-600 mt-1">
+            YOLOv9 • Real-time monitoring • Precise localization
+          </p>
+
+          <div className="text-sm text-gray-500 mt-3">
+            Component 3 / Defect Detection /{" "}
+            <span className="font-semibold text-gray-700">{activeTab?.label}</span>
+          </div>
+        </div>
+
+        <div className="max-w-[1500px] mx-auto mb-6 border-b border-gray-200">
+          <div className="flex space-x-8 overflow-x-auto pb-1">
+            {subTabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeSubTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveSubTab(tab.key)}
+                  className={`pb-3 text-sm font-semibold transition-colors flex items-center gap-2 ${
+                    isActive
+                      ? "text-indigo-600 border-b-2 border-indigo-600"
+                      : "text-gray-600 hover:text-gray-800"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* TOP ROW */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* LEFT */}
-          <AnnotatedDefectImage />
-
-          {/* RIGHT */}
-          <EncoderPulseMonitor />
-        </div>
-
-        {/* MIDDLE + BOTTOM ROWS */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* FULL LEFT COLUMN */}
-          <div className="lg:col-span-2 space-y-6">
-            <DefectDetail />
-            <DetectionHistoryMonitor />
-          </div>
-
-          {/* RIGHT COLUMN */}
-          <div className="space-y-6">
-            <DefectClassification />
-            <AverageDefects />
-            
-            {/* Additional Stats Card */}
-            <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-              <h3 className="font-semibold text-gray-800 mb-4">Quick Stats</h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Defects Today</span>
-                  <span className="font-semibold text-gray-800">24</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Detection Rate</span>
-                  <span className="font-semibold text-green-600">98.7%</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Avg. Response</span>
-                  <span className="font-semibold text-gray-800">0.4s</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Uptime</span>
-                  <span className="font-semibold text-blue-600">99.9%</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+        <div className="max-w-[1500px] mx-auto">{renderSubContent()}</div>
+      </motion.div>
+    </AnimatePresence>
   );
 };
+
 export default DefectDetectionModule;

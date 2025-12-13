@@ -1,4 +1,3 @@
-// data/defectData.ts
 export const defectData = {
   annotatedImage: "https://images.unsplash.com/photo-1578932750294-f5075e85f44a?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
   

@@ -1,4 +1,3 @@
-// components/DefectDetect/EncoderPulseMonitor.tsx
 "use client";
 import React from "react";
 import { Line } from "react-chartjs-2";
@@ -89,7 +88,52 @@ const EncoderPulseMonitor = () => {
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-lg p-6">
-      JJ
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+            <FiActivity className="w-5 h-5 text-blue-600" />
+            Encoder Pulse Monitor
+          </h2>
+          <p className="text-gray-600 text-sm mt-1">Real-time pulse monitoring and analysis</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+            <FiRefreshCw className="w-4 h-4 text-gray-600" />
+          </button>
+          <span className="px-3 py-1 bg-green-100 text-green-800 text-xs rounded-full font-medium">
+            LIVE
+          </span>
+        </div>
+      </div>
+
+      <div className="h-64">
+        <Line data={data} options={options} />
+      </div>
+
+      <div className="grid grid-cols-3 gap-4 mt-6">
+        <div className="text-center p-3 bg-blue-50 rounded-lg">
+          <div className="text-2xl font-bold text-blue-700">92</div>
+          <div className="text-xs text-blue-600 mt-1">Current Pulse</div>
+        </div>
+        <div className="text-center p-3 bg-emerald-50 rounded-lg">
+          <div className="text-2xl font-bold text-emerald-700">88.5</div>
+          <div className="text-xs text-emerald-600 mt-1">Average</div>
+        </div>
+        <div className="text-center p-3 bg-amber-50 rounded-lg">
+          <div className="text-2xl font-bold text-amber-700">95</div>
+          <div className="text-xs text-amber-600 mt-1">Peak</div>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
+        <div className="flex items-center gap-2 text-sm text-gray-600">
+          <FiTrendingUp className="w-4 h-4 text-green-500" />
+          <span>Trend: Normal</span>
+        </div>
+        <div className="text-sm text-gray-500">
+          Updated: Just now
+        </div>
+      </div>
     </div>
   );
 };
