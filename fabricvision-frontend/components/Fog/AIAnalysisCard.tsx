@@ -1,4 +1,6 @@
 import AnimatedMetricCard from "./AnimatedMetricCard";
+import Image from "next/image";
+import fabricPreview from "@/assets/im_1.png";
 
 export default function AIAnalysisCard() {
   return (
@@ -9,8 +11,14 @@ export default function AIAnalysisCard() {
 
       <div className="flex flex-col md:flex-row gap-6">
         <div className="flex flex-col items-center">
-          <div className="w-56 h-40 bg-slate-200 rounded-xl mb-3 flex items-center justify-center text-slate-500 text-sm">
-            Enhanced Frame Preview
+          <div className="w-56 h-40 bg-slate-200 rounded-xl mb-3 relative overflow-hidden">
+            <Image
+              src={fabricPreview}
+              alt="Enhanced Fabric Preview"
+              fill
+              className="object-cover rounded-xl"
+              priority
+            />
           </div>
           <button className="px-3 py-1 rounded-full text-xs bg-slate-100 text-slate-600 border border-slate-200">
             Before / After toggle
