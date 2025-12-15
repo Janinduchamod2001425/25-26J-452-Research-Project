@@ -187,7 +187,6 @@ const DashboardPage = () => {
         return <DefectDetectionModule />;
       case "predictive_analytics_module":
         return <PredictiveAnalyticsModule />;
-
       default:
         return <HomePage />;
     }
