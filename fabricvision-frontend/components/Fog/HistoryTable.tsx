@@ -15,6 +15,13 @@ const historyRows = [
     // fabricType: "Printed",
     status: "High Risk",
   },
+  {
+    time: "2:53 PM",
+    date: "Nov 16 2025",
+    mode: "Dark",
+    // fabricType: "Printed",
+    status: "Stable",
+  },
 ];
 
 export default function HistoryTable() {
