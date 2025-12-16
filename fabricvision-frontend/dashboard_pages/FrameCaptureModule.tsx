@@ -8,7 +8,6 @@ import { Inter } from "next/font/google";
 import Novelty1Motion from "./FrameCapture/Novelty1Motion";
 import Novelty2Anomaly from "./FrameCapture/Novelty2Anomaly";
 import Novelty3Quality from "./FrameCapture/Novelty3Quality";
-import Diagnostics from "@/dashboard_pages/FrameCapture/Diagnostics";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -29,7 +28,6 @@ const subTabs = [
   { key: "novelty1", label: "Motion Extraction" },
   { key: "novelty2", label: "Anomaly Pre-Screen" },
   { key: "novelty3", label: "Quality Analytics" },
-  { key: "diagnostics", label: "Diagnostics" },
 ];
 
 const FrameCaptureModule: React.FC = () => {
@@ -53,8 +51,6 @@ const FrameCaptureModule: React.FC = () => {
         return <Novelty2Anomaly />;
       case "novelty3":
         return <Novelty3Quality />;
-      case "diagnostics":
-        return <Diagnostics />;
       default:
         return <Novelty1Motion />;
     }
