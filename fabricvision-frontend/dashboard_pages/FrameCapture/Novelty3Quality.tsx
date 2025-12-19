@@ -14,6 +14,8 @@ import ModeDistributionChart from "@/components/com1_novelty3/ModeDistributionCh
 import MotionIrregularityCorrelation from "@/components/com1_novelty3/MotionIrregularityCorrelation";
 import SystemHealthIndicators from "@/components/com1_novelty3/SystemHealthIndicators";
 import InsightSummary from "@/components/com1_novelty3/InsightSummary";
+import FrameQualitySummary from "@/components/com1_novelty3/FrameQualitySummary";
+import RollHeader from "@/components/com1_novelty3/RollHeader";
 
 const Novelty3Quality: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
@@ -52,6 +54,10 @@ const Novelty3Quality: React.FC = () => {
       >
         <div className="max-w-[1500px] mx-auto space-y-6">
           <HeaderSummary />
+          <RollHeader />
+
+          {/* Frame Quality Summary */}
+          <FrameQualitySummary />
 
           {/* Row: Motion Timeline + Region Heatmap */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">

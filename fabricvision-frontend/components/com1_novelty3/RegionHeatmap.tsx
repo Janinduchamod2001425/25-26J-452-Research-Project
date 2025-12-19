@@ -52,8 +52,8 @@ const RegionHeatmap: React.FC = () => {
       </div>
 
       <p className="mt-3 text-[11px] text-gray-400">
-        These signals are fed back into the capture engine and anomaly
-        pre-screen, so high-risk zones receive more attention without increasing
+        These signals influence capture intensity and anomaly pre-screening
+        decisions, allowing region-aware prioritization without increasing
         full-roll FPS.
       </p>
     </Card>

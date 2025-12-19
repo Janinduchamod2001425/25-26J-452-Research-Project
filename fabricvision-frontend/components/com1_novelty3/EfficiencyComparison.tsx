@@ -100,8 +100,9 @@ const EfficiencyComparison: React.FC = () => {
               ~{savingPercent.toFixed(1)}% of frames eliminated at edge.
             </p>
             <p>
-              This directly reduces workload for Component 2 & 3 while keeping
-              all burst segments where motion and irregularity are highest.
+              This directly reduces workload at the fog layer (Component 2) and
+              indirectly lowers computational demand in downstream defect
+              detection.
             </p>
             <p className="text-[11px] text-gray-400">
               Scenario assumes a single camera; multi-camera setups benefit even

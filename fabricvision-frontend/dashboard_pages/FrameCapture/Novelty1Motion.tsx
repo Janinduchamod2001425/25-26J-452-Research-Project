@@ -20,6 +20,13 @@ import {
   type ChartOptions,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
+import {
+  AlertTriangle,
+  Pause,
+  PauseCircle,
+  Play,
+  PlayCircle,
+} from "lucide-react";
 
 // Register Chart.js components
 ChartJS.register(
@@ -496,49 +503,6 @@ const Novelty1Motion: React.FC = () => {
                 ))}
               </div>
             </Card>
-          </div>
-
-          {/* RIGHT COLUMN */}
-          <div className="space-y-6">
-            {/* Motion Stability */}
-            <Card className="min-h-[150px]">
-              <h3 className="text-xl font-bold text-gray-800 mb-4">
-                Motion Stability
-              </h3>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-700 font-semibold text-lg">
-                  Stability Score
-                </span>
-                <span className="text-3xl font-bold text-green-600">0.92</span>
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                1.0 = perfectly stable motion • 0 = fully idle. Computed from
-                variance of motion states.
-              </p>
-            </Card>
-
-            {/* Idle Event Summary */}
-            <Card className="min-h-[170px]">
-              <h3 className="text-xl font-bold text-gray-800 mb-4">
-                Idle Event Summary
-              </h3>
-              <div className="space-y-3 text-gray-700">
-                <div className="flex justify-between">
-                  <span>Idle Events</span>
-                  <span className="font-bold">{idleSummary.events}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Longest Idle Gap</span>
-                  <span className="font-bold">
-                    {idleSummary.longestGapSec}s
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Total Idle Duration</span>
-                  <span className="font-bold">{idleSummary.totalIdleSec}s</span>
-                </div>
-              </div>
-            </Card>
 
             {/* Camera Health */}
             <Card className="min-h-[190px]">
@@ -565,6 +529,101 @@ const Novelty1Motion: React.FC = () => {
                   <span className="text-green-600 font-semibold">Running</span>
                 </li>
               </ul>
+            </Card>
+          </div>
+
+          {/* RIGHT COLUMN */}
+          <div className="space-y-6">
+            {/* Capture Rules */}
+            <Card className="border border-gray-300 bg-white">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">
+                Frame Capture Logic
+              </h3>
+
+              <div className="space-y-3">
+                {/* ACTIVE */}
+                <div className="flex items-start gap-4 p-3 border-l-4 border-green-500 bg-green-50 rounded">
+                  <Play className="w-6 h-6 text-green-600 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-green-700">
+                      ACTIVE — Capture Frames
+                    </p>
+                    <p className="text-xs text-gray-700">
+                      Stable fabric motion • Full FPS capture
+                    </p>
+                  </div>
+                </div>
+
+                {/* UNSTABLE */}
+                <div className="flex items-start gap-4 p-3 border-l-4 border-amber-500 bg-amber-50 rounded">
+                  <AlertTriangle className="w-6 h-6 text-amber-600 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-amber-700">
+                      UNSTABLE — Adaptive Capture
+                    </p>
+                    <p className="text-xs text-gray-700">
+                      Motion fluctuation • Burst capture near transitions
+                    </p>
+                  </div>
+                </div>
+
+                {/* IDLE */}
+                <div className="flex items-start gap-4 p-3 border-l-4 border-red-500 bg-red-50 rounded">
+                  <Pause className="w-6 h-6 text-red-600 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-red-700">
+                      IDLE — Skip Frames
+                    </p>
+                    <p className="text-xs text-gray-700">
+                      No effective motion • Frames ignored
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <p className="mt-4 text-[11px] text-gray-500 leading-relaxed">
+                Rule-based capture logic applied at the edge to reduce redundant
+                frames before downstream processing.
+              </p>
+            </Card>
+
+            {/* Motion Stability */}
+            <Card className="min-h-[150px]">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">
+                Motion Stability
+              </h3>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-700 font-semibold text-lg">
+                  Stability Score
+                </span>
+                <span className="text-3xl font-bold text-green-600">0.92</span>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                1.0 = continuous stable motion • 0 = no effective motion
+              </p>
+            </Card>
+
+            {/* Idle Event Summary */}
+            <Card className="min-h-[170px]">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">
+                Idle Event Summary
+              </h3>
+              <div className="space-y-3 text-gray-700">
+                <div className="flex justify-between">
+                  <span>Idle Events</span>
+                  <span className="font-bold">{idleSummary.events}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Longest Idle Gap</span>
+                  <span className="font-bold">
+                    {idleSummary.longestGapSec}s
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Total Idle Duration</span>
+                  <span className="font-bold">{idleSummary.totalIdleSec}s</span>
+                </div>
+              </div>
             </Card>
           </div>
         </div>
