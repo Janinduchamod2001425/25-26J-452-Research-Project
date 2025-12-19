@@ -110,7 +110,7 @@ const logs: LogItem[] = [
   {
     time: "10:32:26",
     frame: 1050,
-    message: "Anomalous region detected near left edge.",
+    message: "Anomalous region detected; flagged for fog-level enhancement.",
     level: "error",
   },
 ];
@@ -434,16 +434,16 @@ const Novelty2Anomaly: React.FC = () => {
                     </p>
                     <p className="font-semibold">
                       {status === "ANOMALOUS"
-                        ? "Forward to Defect Detector"
+                        ? "Forward to Fog Enhancement"
                         : status === "WARNING"
-                          ? "Flag for Review"
-                          : "Treat as Normal"}
+                          ? "Flag for Fog Review"
+                          : "Normal Flow"}
                     </p>
                   </div>
 
                   <div>
                     <p className="text-gray-500 text-xs uppercase mb-1">
-                      Confidence (Edge Estimate)
+                      Decision Confidence (Edge)
                     </p>
                     <p className="font-semibold">
                       ~{(latestPoint.score * 100).toFixed(0)}%
@@ -453,8 +453,9 @@ const Novelty2Anomaly: React.FC = () => {
 
                 <p className="text-xs text-gray-500 leading-relaxed">
                   FIS is computed as the mean squared error between original and
-                  reconstructed frame. Frames above threshold are considered
-                  anomalous and are prioritized for Component 3 (YOLO).
+                  reconstructed frame. Frames above the threshold are flagged as
+                  anomalous and forwarded to the fog computing layer, where
+                  adaptive enhancement is applied before defect detection.
                 </p>
               </div>
             </Card>
@@ -505,8 +506,9 @@ const Novelty2Anomaly: React.FC = () => {
               <p className="text-xs text-gray-500 mt-4 leading-relaxed">
                 Error values represent mean reconstruction error across local
                 spatial patches in the VIM. Regions with higher scores indicate
-                dominant irregularity zones and help localize anomalies prior to
-                forwarding frames to Component 3 (YOLO).
+                dominant irregularity zones and help localize anomalies before
+                frames are forwarded to the fog computing layer for targeted
+                enhancement.
               </p>
             </Card>
           </div>
@@ -562,7 +564,7 @@ const Novelty2Anomaly: React.FC = () => {
             </h3>
             <div className="space-y-3 text-sm text-gray-700">
               <div className="flex justify-between">
-                <span>Frames forwarded to YOLO</span>
+                <span>Frames forwarded to Fog Layer</span>
                 <span className="font-semibold">{fisForwardedFrames}</span>
               </div>
               <div className="flex justify-between">
@@ -602,8 +604,8 @@ const Novelty2Anomaly: React.FC = () => {
                   Frames safely dropped at pre-screen stage.
                 </p>
                 <p className="text-xs text-gray-500">
-                  Reduces bandwidth and compute cost for downstream defect
-                  detection while maintaining coverage of risky segments.
+                  Reduces bandwidth and compute load by ensuring only relevant
+                  frames are enhanced at the fog layer before defect detection.
                 </p>
               </div>
             </div>
