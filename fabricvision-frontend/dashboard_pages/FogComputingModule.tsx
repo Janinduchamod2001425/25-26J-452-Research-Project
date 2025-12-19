@@ -1,22 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import TopBar from "./FogProcessing/TopBar";
+import EnhancementOverviewTab from "./FogProcessing/EnhancementOverviewTab";
+import QualityAnalyticsTab from "./FogProcessing/QualityAnalyticsTab";
 
-import TopBar from "@/dashboard_pages/FogProcessing/TopBar";
-import AIAnalysisCard from "@/dashboard_pages/FogProcessing/AIAnalysisCard";
-import PerformanceCard from "@/dashboard_pages/FogProcessing/PerformanceCard";
-import FPSChart from "@/dashboard_pages/FogProcessing/FPSChart";
-import QualityRiskChart from "@/dashboard_pages/FogProcessing/QualityRiskChart";
-import AlertsPanel from "@/dashboard_pages/FogProcessing/AlertsPanel";
-import HistoryTable from "@/dashboard_pages/FogProcessing/HistoryTable";
-
-// 👉 NEW TAB CONTENT
-import QualityAnalyticsTab from "@/dashboard_pages/FogProcessing/QualityAnalyticsTab";
-
-type TabKey = "overview" | "analytics";
+type Tab = "overview" | "analytics";
 
 export default function FogComputingModule() {
-  const [activeTab, setActiveTab] = useState<TabKey>("overview");
+  const [activeTab, setActiveTab] = useState<Tab>("overview");
 
   return (
     <main className="w-full min-h-screen bg-slate-100">
@@ -24,7 +16,7 @@ export default function FogComputingModule() {
         {/* Header */}
         <TopBar />
 
-        {/* ---------------- TAB BAR ---------------- */}
+        {/* Tabs */}
         <div className="flex gap-6 border-b border-slate-200">
           <TabButton
             label="Enhancement Overview"
@@ -38,43 +30,15 @@ export default function FogComputingModule() {
           />
         </div>
 
-        {/* ---------------- TAB CONTENT ---------------- */}
-
-        {/* TAB 1: Existing Dashboard (NO CHANGES INSIDE) */}
-        {activeTab === "overview" && (
-          <div className="space-y-6 pt-4">
-            {/* Row 1 */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              <AIAnalysisCard />
-              <PerformanceCard />
-            </div>
-
-            {/* Row 2 */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              <FPSChart />
-              <QualityRiskChart />
-            </div>
-
-            {/* Row 3 */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              <AlertsPanel />
-              <HistoryTable />
-            </div>
-          </div>
-        )}
-
-        {/* TAB 2: Quality Analytics */}
-        {activeTab === "analytics" && (
-          <div className="pt-4">
-            <QualityAnalyticsTab />
-          </div>
-        )}
+        {/* Tab Content */}
+        <div className="pt-4">
+          {activeTab === "overview" && <EnhancementOverviewTab />}
+          {activeTab === "analytics" && <QualityAnalyticsTab />}
+        </div>
       </div>
     </main>
   );
 }
-
-/* ---------------- TAB BUTTON ---------------- */
 
 function TabButton({
   label,
@@ -88,7 +52,7 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`pb-3 text-sm font-medium transition-colors border-b-2
+      className={`pb-3 text-sm font-medium border-b-2 transition-colors
         ${
           active
             ? "border-indigo-600 text-indigo-600"
