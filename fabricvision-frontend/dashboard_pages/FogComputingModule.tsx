@@ -1,13 +1,13 @@
 // Dashboard view
 "use client";
 
-import TopBar from "@/components/Fog/TopBar";
-import AIAnalysisCard from "@/components/Fog/AIAnalysisCard";
-import PerformanceCard from "@/components/Fog/PerformanceCard";
-import FPSChart from "@/components/Fog/FPSChart";
-import QualityRiskChart from "@/components/Fog/QualityRiskChart";
-import AlertsPanel from "@/components/Fog/AlertsPanel";
-import HistoryTable from "@/components/Fog/HistoryTable";
+import TopBar from "@/dashboard_pages/FogProcessing/TopBar";
+import AIAnalysisCard from "@/dashboard_pages/FogProcessing/AIAnalysisCard";
+import PerformanceCard from "@/dashboard_pages/FogProcessing/PerformanceCard";
+import FPSChart from "@/dashboard_pages/FogProcessing/FPSChart";
+import QualityRiskChart from "@/dashboard_pages/FogProcessing/QualityRiskChart";
+import AlertsPanel from "@/dashboard_pages/FogProcessing/AlertsPanel";
+import HistoryTable from "@/dashboard_pages/FogProcessing/HistoryTable";
 
 export default function FogComputingModule() {
   return (
