@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from services.fabricdetection.detector import FabricDefectDetector
+from services.fogcomputing.router import router as fog_router
 
 # Load environment variables
 load_dotenv()
@@ -21,6 +22,8 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+app.include_router(fog_router)
 
 # Enable CORS
 app.add_middleware(
