@@ -5,5 +5,5 @@ numpy==1.26.4
 python-dotenv==1.0.0
 python-multipart==0.0.6
 pillow
-opencv-python==4.8.1.78
+opencv-python-headless==4.8.1.78
 ultralytics==8.0.196
