@@ -12,17 +12,38 @@ router = APIRouter(prefix="/fogcomputing", tags=["Fog Computing"])
 # ---------------------------
 # Paths
 # ---------------------------
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))  # points to fabapi/
-MODEL_PATH = os.path.join(BASE_DIR, "models", "models/fogcomputing/mobilenetv2_fabric_classifier.h5")
-MAPPING_PATH = os.path.join(BASE_DIR, "models", "models/fogcomputing/class_mapping.json")
+# points to .../fabapi/
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+
+# Default paths pointing to files in fabapi/models/fogcomputing/
+DEFAULT_MODEL_PATH = os.path.join(
+    BASE_DIR, "models", "fogcomputing", "mobilenetv2_fabric_classifierV1.h5"
+)
+DEFAULT_MAPPING_PATH = os.path.join(
+    BASE_DIR, "models", "fogcomputing", "class_mapping.json"
+)
+
+# Allow environment overrides if desired
+MODEL_PATH = os.getenv("FOG_MODEL_PATH", DEFAULT_MODEL_PATH)
+MAPPING_PATH = os.getenv("FOG_CLASS_MAPPING_PATH", DEFAULT_MAPPING_PATH)
+
+# Quick existence checks for clearer startup logs
+if not os.path.exists(MODEL_PATH):
+    print(f"❌ Model path not found: {MODEL_PATH}")
+if not os.path.exists(MAPPING_PATH):
+    print(f"❌ Mapping path not found: {MAPPING_PATH}")
 
 IMG_SIZE = (224, 224)
 
 # ---------------------------
-# Load model once (startup)
+# Load model once (import/startup)
 # ---------------------------
 try:
-    model = tf.keras.models.load_model(MODEL_PATH)
+    model = tf.keras.models.load_model(
+    MODEL_PATH,
+    compile=False
+)
+    print(f"✅ Keras model loaded from: {MODEL_PATH}")
 except Exception as e:
     model = None
     print("❌ Failed to load model:", e)
@@ -33,6 +54,7 @@ try:
         class_mapping = json.load(f)
     # Convert keys to int for safer lookup
     class_mapping = {int(k): v for k, v in class_mapping.items()}
+    print(f"✅ Class mapping loaded from: {MAPPING_PATH}")
 except Exception as e:
     class_mapping = None
     print("❌ Failed to load class mapping:", e)
