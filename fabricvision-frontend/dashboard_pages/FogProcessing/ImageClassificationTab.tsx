@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
+import axios from "axios";
 import { motion } from "framer-motion";
 import Image from "next/image";
 
+// 🔗 FastAPI endpoint
 const API_URL = "http://127.0.0.1:8000/fogcomputing/classify";
 
 const ImageClassificationTab: React.FC = () => {
@@ -13,6 +15,9 @@ const ImageClassificationTab: React.FC = () => {
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // -------------------------
+  // File select
+  // -------------------------
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
     if (!selected) return;
@@ -23,6 +28,9 @@ const ImageClassificationTab: React.FC = () => {
     setError(null);
   };
 
+  // -------------------------
+  // Upload + classify (Axios)
+  // -------------------------
   const handleUpload = async () => {
     if (!file) return;
 
@@ -33,19 +41,18 @@ const ImageClassificationTab: React.FC = () => {
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await fetch(API_URL, {
-        method: "POST",
-        body: formData,
+      const response = await axios.post(API_URL, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
       });
 
-      if (!res.ok) {
-        throw new Error("Prediction failed");
-      }
-
-      const data = await res.json();
-      setResult(data);
+      setResult(response.data);
     } catch (err: any) {
-      setError(err.message || "Something went wrong");
+      console.error(err);
+      setError(
+        err?.response?.data?.detail || "Failed to classify image. Check API."
+      );
     } finally {
       setLoading(false);
     }
@@ -63,7 +70,7 @@ const ImageClassificationTab: React.FC = () => {
           Fabric Image Classification
         </h1>
         <p className="text-gray-600">
-          Upload a fabric frame to classify lighting & texture profile using
+          Upload a fabric frame and classify lighting & texture profile using
           edge-level MobileNetV2
         </p>
       </div>
@@ -79,18 +86,19 @@ const ImageClassificationTab: React.FC = () => {
           accept="image/png,image/jpeg"
           onChange={handleFileChange}
           className="block w-full text-sm text-gray-500
-                     file:mr-4 file:py-2 file:px-4
-                     file:rounded-lg file:border-0
-                     file:text-sm file:font-semibold
-                     file:bg-indigo-50 file:text-indigo-700
-                     hover:file:bg-indigo-100"
+            file:mr-4 file:py-2 file:px-4
+            file:rounded-lg file:border-0
+            file:text-sm file:font-semibold
+            file:bg-indigo-50 file:text-indigo-700
+            hover:file:bg-indigo-100"
         />
 
+        {/* Preview */}
         {preview && (
-          <div className="mt-4 relative w-full h-64 rounded-lg overflow-hidden border">
+          <div className="mt-4 relative w-full h-64 rounded-lg overflow-hidden border bg-gray-50">
             <Image
               src={preview}
-              alt="Preview"
+              alt="Fabric Preview"
               fill
               className="object-contain"
             />
@@ -101,7 +109,7 @@ const ImageClassificationTab: React.FC = () => {
           onClick={handleUpload}
           disabled={!file || loading}
           className="mt-4 px-6 py-2 rounded-lg bg-indigo-600 text-white font-medium
-                     hover:bg-indigo-700 disabled:opacity-50"
+            hover:bg-indigo-700 disabled:opacity-50"
         >
           {loading ? "Classifying..." : "Run Classification"}
         </button>
@@ -118,6 +126,7 @@ const ImageClassificationTab: React.FC = () => {
             Classification Result
           </h2>
 
+          {/* Main result */}
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Predicted Class</p>
@@ -134,11 +143,12 @@ const ImageClassificationTab: React.FC = () => {
             </div>
           </div>
 
-          {/* Probabilities */}
+          {/* Probability bars */}
           <div className="mt-6">
             <h3 className="text-sm font-semibold text-gray-700 mb-2">
               Class Probabilities
             </h3>
+
             <div className="space-y-2">
               {Object.entries(result.probabilities).map(([cls, prob]: any) => (
                 <div key={cls}>
@@ -159,8 +169,9 @@ const ImageClassificationTab: React.FC = () => {
         </motion.div>
       )}
 
+      {/* Error */}
       {error && (
-        <div className="text-red-600 bg-red-50 p-4 rounded-lg border border-red-200">
+        <div className="bg-red-50 text-red-700 p-4 rounded-lg border border-red-200">
           {error}
         </div>
       )}
