@@ -4,8 +4,9 @@ import { useState } from "react";
 import TopBar from "./FogProcessing/TopBar";
 import EnhancementOverviewTab from "./FogProcessing/EnhancementOverviewTab";
 import QualityAnalyticsTab from "./FogProcessing/QualityAnalyticsTab";
+import ImageClassificationTab from "./FogProcessing/ImageClassificationTab";
 
-type Tab = "overview" | "analytics";
+type Tab = "classification" | "overview" | "analytics";
 
 export default function FogComputingModule() {
   const [activeTab, setActiveTab] = useState<Tab>("overview");
@@ -18,6 +19,11 @@ export default function FogComputingModule() {
 
         {/* Tabs */}
         <div className="flex gap-6 border-b border-slate-200">
+          <TabButton
+            label="Image Classification"
+            active={activeTab === "classification"}
+            onClick={() => setActiveTab("classification")}
+          />
           <TabButton
             label="Enhancement Overview"
             active={activeTab === "overview"}
@@ -32,6 +38,7 @@ export default function FogComputingModule() {
 
         {/* Tab Content */}
         <div className="pt-4">
+          {activeTab === "classification" && <ImageClassificationTab />}
           {activeTab === "overview" && <EnhancementOverviewTab />}
           {activeTab === "analytics" && <QualityAnalyticsTab />}
         </div>
