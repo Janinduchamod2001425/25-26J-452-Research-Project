@@ -94,9 +94,7 @@ const ImageClassificationTab: React.FC = () => {
         <h1 className="text-2xl font-bold text-gray-900">
           Fabric Classification & Enhancement
         </h1>
-        <p className="text-gray-600">
-          Class-aware edge-level enhancement using MobileNetV2
-        </p>
+        <p className="text-gray-600">Class-aware edge-level enhancement</p>
       </div>
 
       {/* Upload */}

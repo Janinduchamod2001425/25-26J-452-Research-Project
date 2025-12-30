@@ -209,19 +209,19 @@ const EnhancementOverviewDashboard: React.FC = () => {
     {
       time: "2:52 PM",
       profile: "Patterned",
-      fabric: "Printed",
+      // fabric: "Printed",
       status: "Warning",
     },
     {
       time: "2:53 PM",
-      profile: "Standard",
-      fabric: "Polyester",
+      profile: "Light",
+      // fabric: "Polyester",
       status: "Stable",
     },
     {
       time: "2:54 PM",
-      profile: "High Contrast",
-      fabric: "Silk",
+      profile: "Dark",
+      // fabric: "Silk",
       status: "Stable",
     },
   ];

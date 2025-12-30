@@ -125,7 +125,7 @@ async def classify_fabric_image(file: UploadFile = File(...)):
 
 
 # =================================================
-# ENHANCEMENT ENDPOINT (NEW)
+# ENHANCEMENT ENDPOINT 
 # =================================================
 @router.post("/enhance")
 async def enhance_fabric_image(
