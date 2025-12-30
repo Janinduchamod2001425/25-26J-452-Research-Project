@@ -11,7 +11,7 @@ from PIL import Image
 # =========================
 router = APIRouter(
     prefix="/frame",
-    tags=["Model 2 – Frame Anomaly & Quality Analysis"]
+    tags=["Component 1 Model 2 – Frame Anomaly & Quality Analysis"]
 )
 
 # =========================

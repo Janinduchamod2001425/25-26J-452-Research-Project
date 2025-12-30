@@ -6,7 +6,7 @@ import io, os
 
 router = APIRouter(
     prefix="/motion",
-    tags=["Model 1 – Motion Classification"]
+    tags=["Component 1 Model 1 – Motion Classification"]
 )
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))

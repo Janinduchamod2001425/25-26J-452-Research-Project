@@ -33,11 +33,6 @@ app = FastAPI(
     title="FabricVision Unified Analytics API",
     description="""
     A unified backend for FabricVision research platform.
-
-    Components:
-    • Fabric Defect Detection (YOLO-based)
-    • Motion Classification (Model 1)
-    • Frame Anomaly & Quality Analytics (Model 2)
     """,
     version="2.1.0",
     docs_url="/docs",
