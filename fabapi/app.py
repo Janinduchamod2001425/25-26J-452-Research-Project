@@ -5,16 +5,16 @@ from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 
 # ===============================
-# EXISTING IMPORTS (DO NOT TOUCH)
-# ===============================
-from fabapi.services.fabricdetection.detector import FabricDefectDetector
-
-# ===============================
-# NEW IMPORTS (YOUR COMPONENT)
+# Component 1 services
 # ===============================
 from fabapi.services.framecapture.motion_api import router as motion_router
 from fabapi.services.framecapture.anomaly_api import router as anomaly_router
+from fabapi.services.framecapture.quality_api import router as quality_router
 
+# ===============================
+# Component 3 services
+# ===============================
+from fabapi.services.fabricdetection.detector import FabricDefectDetector
 
 # ===============================
 # ENVIRONMENT SETUP
@@ -176,10 +176,11 @@ async def detect_batch(files: list[UploadFile] = File(...)):
 
 
 # ===============================
-# 🔗 YOUR COMPONENT INTEGRATION
+# Frame Capture Routers (Janindu)
 # ===============================
 app.include_router(motion_router)
 app.include_router(anomaly_router)
+app.include_router(quality_router)
 
 
 # ===============================
