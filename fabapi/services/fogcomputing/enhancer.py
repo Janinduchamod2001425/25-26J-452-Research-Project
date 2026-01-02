@@ -1,26 +1,399 @@
+# import cv2
+# import numpy as np
+
+# class FabricEnhancer:
+#     def __init__(self):
+#         pass
+
+#     # -------------------------
+#     # Public API
+#     # -------------------------
+#     def enhance(self, image: np.ndarray, fabric_class: str) -> np.ndarray:
+#         if fabric_class == "dark":
+#             return self._enhance_dark(image)
+#         elif fabric_class == "light":
+#             return self._enhance_light(image)
+#         elif fabric_class == "patterned":
+#             return self._enhance_patterned(image)
+#         else:
+#             return image  # fallback
+
+#     # -------------------------
+#     # DARK FABRIC
+#     # -------------------------
+#     def _enhance_dark(self, img):
+#         lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+#         l, a, b = cv2.split(lab)
+
+#         clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+#         l = clahe.apply(l)
+
+#         lab = cv2.merge((l, a, b))
+#         img = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+
+#         img = self._gamma_correction(img, gamma=0.7)
+#         img = self._sharpen(img, strength=1.0)
+
+#         return img
+
+#     # -------------------------
+#     # LIGHT FABRIC
+#     # -------------------------
+#     def _enhance_light(self, img):
+#         img = cv2.convertScaleAbs(img, alpha=0.9, beta=-10)
+#         img = cv2.bilateralFilter(img, 9, 75, 75)
+#         return img
+
+#     # -------------------------
+#     # PATTERNED FABRIC
+#     # -------------------------
+#     def _enhance_patterned(self, img):
+#         smoothed = cv2.edgePreservingFilter(
+#             img, flags=1, sigma_s=60, sigma_r=0.4
+#         )
+#         smoothed = self._sharpen(smoothed, strength=0.6)
+#         return smoothed
+
+#     # -------------------------
+#     # Utilities
+#     # -------------------------
+#     def _gamma_correction(self, img, gamma=1.0):
+#         invGamma = 1.0 / gamma
+#         table = np.array([
+#             ((i / 255.0) ** invGamma) * 255
+#             for i in range(256)
+#         ]).astype("uint8")
+
+#         return cv2.LUT(img, table)
+
+#     def _sharpen(self, img, strength=1.0):
+#         kernel = np.array([
+#             [0, -1, 0],
+#             [-1, 5 + strength, -1],
+#             [0, -1, 0]
+#         ])
+#         return cv2.filter2D(img, -1, kernel)
+
+# New one
+# import cv2
+# import numpy as np
+
+# class FabricEnhancer:
+#     def __init__(self):
+#         pass
+
+#     def enhance(self, image: np.ndarray, fabric_class: str) -> np.ndarray:
+#         fc = (fabric_class or "").lower().strip()
+#         if fc == "dark":
+#             return self._enhance_dark(image)
+#         elif fc == "light":
+#             return self._enhance_light(image)
+#         elif fc == "patterned":
+#             return self._enhance_patterned(image)
+#         return image
+
+#     def enhance_by_class(self, image: np.ndarray, fabric_class: str) -> tuple[np.ndarray, dict]:
+#         fc = (fabric_class or "").lower().strip()
+#         if fc == "dark":
+#             clahe_clip = 3.0
+#             tile_size = (8, 8)
+#             gamma = 0.7
+#             sharpen_strength = 1.0
+#             enhanced = self._enhance_dark(image)
+#             params = {
+#                 "mode": "dark",
+#                 "clahe_clip": clahe_clip,
+#                 "clahe_tile_grid": list(tile_size),
+#                 "gamma": gamma,
+#                 "sharpen_strength": sharpen_strength,
+#             }
+#             return enhanced, params
+
+#         if fc == "light":
+#             alpha = 0.9
+#             beta = -10
+#             d = 9
+#             sigma_color = 75
+#             sigma_space = 75
+#             enhanced = self._enhance_light(image)
+#             params = {
+#                 "mode": "light",
+#                 "alpha": alpha,
+#                 "beta": beta,
+#                 "bilateral_d": d,
+#                 "bilateral_sigmaColor": sigma_color,
+#                 "bilateral_sigmaSpace": sigma_space,
+#             }
+#             return enhanced, params
+
+#         if fc == "patterned":
+#             sigma_s = 60
+#             sigma_r = 0.4
+#             sharpen_strength = 0.6
+#             enhanced = self._enhance_patterned(image)
+#             params = {
+#                 "mode": "patterned",
+#                 "edgePreserve_sigma_s": sigma_s,
+#                 "edgePreserve_sigma_r": sigma_r,
+#                 "sharpen_strength": sharpen_strength,
+#             }
+#             return enhanced, params
+
+#         return image, {"mode": "none"}
+
+#     def compute_metrics(self, before_bgr: np.ndarray, after_bgr: np.ndarray) -> dict:
+#         before_gray = cv2.cvtColor(before_bgr, cv2.COLOR_BGR2GRAY)
+#         after_gray = cv2.cvtColor(after_bgr, cv2.COLOR_BGR2GRAY)
+
+#         def brightness(g):
+#             return float(np.mean(g))
+
+#         def contrast(g):
+#             return float(np.std(g))
+
+#         def sharpness(g):
+#             return float(cv2.Laplacian(g, cv2.CV_64F).var())
+
+#         def quality(br, ct, sh):
+#             br_n = min(max(br / 255.0, 0.0), 1.0)
+#             ct_n = min(ct, 128.0) / 128.0
+#             sh_n = min(sh, 1000.0) / 1000.0
+#             return float((0.2 * br_n + 0.4 * ct_n + 0.4 * sh_n) * 100.0)
+
+#         b_b = brightness(before_gray)
+#         c_b = contrast(before_gray)
+#         s_b = sharpness(before_gray)
+#         q_b = quality(b_b, c_b, s_b)
+
+#         b_a = brightness(after_gray)
+#         c_a = contrast(after_gray)
+#         s_a = sharpness(after_gray)
+#         q_a = quality(b_a, c_a, s_a)
+
+#         return {
+#             "before": {
+#                 "brightness": round(b_b, 2),
+#                 "contrast": round(c_b, 2),
+#                 "sharpness": round(s_b, 2),
+#                 "quality": round(q_b, 2),
+#             },
+#             "after": {
+#                 "brightness": round(b_a, 2),
+#                 "contrast": round(c_a, 2),
+#                 "sharpness": round(s_a, 2),
+#                 "quality": round(q_a, 2),
+#             },
+#             "delta": {
+#                 "brightness": round(b_a - b_b, 2),
+#                 "contrast": round(c_a - c_b, 2),
+#                 "sharpness": round(s_a - s_b, 2),
+#                 "quality": round(q_a - q_b, 2),
+#             },
+#         }
+
+#     def region_contribution(self, before_bgr: np.ndarray, after_bgr: np.ndarray) -> dict:
+#         h, w = before_bgr.shape[:2]
+#         before_gray = cv2.cvtColor(before_bgr, cv2.COLOR_BGR2GRAY)
+#         after_gray = cv2.cvtColor(after_bgr, cv2.COLOR_BGR2GRAY)
+
+#         regions = []
+#         thirds = [(0, w // 3), (w // 3, 2 * w // 3), (2 * w // 3, w)]
+#         names = ["left", "center", "right"]
+
+#         for (x0, x1), name in zip(thirds, names):
+#             b_roi = before_gray[:, x0:x1]
+#             a_roi = after_gray[:, x0:x1]
+#             s_b = float(cv2.Laplacian(b_roi, cv2.CV_64F).var())
+#             s_a = float(cv2.Laplacian(a_roi, cv2.CV_64F).var())
+#             improvement = s_a - s_b
+#             regions.append({
+#                 "name": name,
+#                 "sharpness_before": round(s_b, 2),
+#                 "sharpness_after": round(s_a, 2),
+#                 "improvement": round(improvement, 2),
+#                 "width": x1 - x0,
+#                 "height": h,
+#             })
+
+#         return {"regions": regions}
+
+#     def _enhance_dark(self, img):
+#         lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+#         l, a, b = cv2.split(lab)
+#         clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+#         l = clahe.apply(l)
+#         lab = cv2.merge((l, a, b))
+#         img = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+#         img = self._gamma_correction(img, gamma=0.7)
+#         img = self._sharpen(img, strength=1.0)
+#         return img
+
+#     def _enhance_light(self, img):
+#         img = cv2.convertScaleAbs(img, alpha=0.9, beta=-10)
+#         img = cv2.bilateralFilter(img, 9, 75, 75)
+#         return img
+
+#     def _enhance_patterned(self, img):
+#         smoothed = cv2.edgePreservingFilter(img, flags=1, sigma_s=60, sigma_r=0.4)
+#         smoothed = self._sharpen(smoothed, strength=0.6)
+#         return smoothed
+
+#     def _gamma_correction(self, img, gamma=1.0):
+#         invGamma = 1.0 / gamma
+#         table = np.array([((i / 255.0) ** invGamma) * 255 for i in range(256)]).astype("uint8")
+#         return cv2.LUT(img, table)
+
+#     def _sharpen(self, img, strength=1.0):
+#         kernel = np.array([[0, -1, 0], [-1, 5 + strength, -1], [0, -1, 0]])
+#         return cv2.filter2D(img, -1, kernel)
+
+# After fixed metrics error
 import cv2
 import numpy as np
+
 
 class FabricEnhancer:
     def __init__(self):
         pass
 
-    # -------------------------
-    # Public API
-    # -------------------------
-    def enhance(self, image: np.ndarray, fabric_class: str) -> np.ndarray:
-        if fabric_class == "dark":
-            return self._enhance_dark(image)
-        elif fabric_class == "light":
-            return self._enhance_light(image)
-        elif fabric_class == "patterned":
-            return self._enhance_patterned(image)
-        else:
-            return image  # fallback
+    # =====================================================
+    # MAIN ENTRY (used by API)
+    # =====================================================
+    def enhance_by_class(self, image: np.ndarray, fabric_class: str):
+        fc = (fabric_class or "").lower().strip()
 
-    # -------------------------
-    # DARK FABRIC
-    # -------------------------
+        if fc == "dark":
+            enhanced = self._enhance_dark(image)
+            params = {
+                "profile": "dark",
+                "clahe_clip": 3.0,
+                "gamma": 0.7,
+                "sharpen_strength": 1.0,
+            }
+
+        elif fc == "light":
+            enhanced = self._enhance_light(image)
+            params = {
+                "profile": "light",
+                "alpha": 0.9,
+                "beta": -10,
+                "bilateral_filter": True,
+            }
+
+        elif fc == "patterned":
+            enhanced = self._enhance_patterned(image)
+            params = {
+                "profile": "patterned",
+                "edge_preserve": True,
+                "sharpen_strength": 0.6,
+            }
+
+        else:
+            enhanced = image
+            params = {"profile": "none"}
+
+        return enhanced, params
+
+    # =====================================================
+    # METRICS COMPUTATION (REAL ANALYTICS)
+    # =====================================================
+    def compute_metrics(self, before_bgr: np.ndarray, after_bgr: np.ndarray):
+        before_gray = cv2.cvtColor(before_bgr, cv2.COLOR_BGR2GRAY)
+        after_gray = cv2.cvtColor(after_bgr, cv2.COLOR_BGR2GRAY)
+
+        # ---------- basic measures ----------
+        def brightness(g):
+            return float(np.mean(g))
+
+        def contrast(g):
+            return float(np.std(g))
+
+        def sharpness(g):
+            return float(cv2.Laplacian(g, cv2.CV_64F).var())
+
+        # ---------- composite quality ----------
+        def quality(br, ct, sh):
+            br_n = min(max(br / 255.0, 0.0), 1.0)
+            ct_n = min(ct, 128.0) / 128.0
+            sh_n = min(sh, 1000.0) / 1000.0
+            return float((0.2 * br_n + 0.4 * ct_n + 0.4 * sh_n) * 100.0)
+
+        # ---------- before ----------
+        b_b = brightness(before_gray)
+        c_b = contrast(before_gray)
+        s_b = sharpness(before_gray)
+        q_b = quality(b_b, c_b, s_b)
+
+        # ---------- after ----------
+        b_a = brightness(after_gray)
+        c_a = contrast(after_gray)
+        s_a = sharpness(after_gray)
+        q_a = quality(b_a, c_a, s_a)
+
+        # ---------- deltas ----------
+        delta_quality_pct = ((q_a - q_b) / max(q_b, 1e-6)) * 100.0
+        delta_sharpness_pct = ((s_a - s_b) / max(s_b, 1e-6)) * 100.0
+        delta_noise_pct = ((c_b - c_a) / max(c_b, 1e-6)) * 100.0
+
+        return {
+            "before": {
+                "brightness": round(b_b, 2),
+                "contrast": round(c_b, 2),
+                "sharpness": round(s_b, 2),
+                "quality": round(q_b, 2),
+            },
+            "after": {
+                "brightness": round(b_a, 2),
+                "contrast": round(c_a, 2),
+                "sharpness": round(s_a, 2),
+                "quality": round(q_a, 2),
+            },
+            "delta": {
+                "brightness": round(b_a - b_b, 2),
+                "contrast": round(c_a - c_b, 2),
+                "sharpness": round(s_a - s_b, 2),
+                "quality": round(q_a - q_b, 2),
+            },
+            "delta_pct": {
+                "quality_gain_pct": round(delta_quality_pct, 2),
+                "sharpness_gain_pct": round(delta_sharpness_pct, 2),
+                "noise_reduction_pct": round(delta_noise_pct, 2),
+            },
+        }
+
+    # =====================================================
+    # REGION CONTRIBUTION (LEFT / CENTER / RIGHT)
+    # =====================================================
+    def region_contribution(self, before_bgr: np.ndarray, after_bgr: np.ndarray):
+        h, w = before_bgr.shape[:2]
+
+        before_gray = cv2.cvtColor(before_bgr, cv2.COLOR_BGR2GRAY)
+        after_gray = cv2.cvtColor(after_bgr, cv2.COLOR_BGR2GRAY)
+
+        thirds = [(0, w // 3), (w // 3, 2 * w // 3), (2 * w // 3, w)]
+        names = ["Left Warp", "Center Weave", "Right Warp"]
+
+        regions = []
+
+        for (x0, x1), name in zip(thirds, names):
+            b_roi = before_gray[:, x0:x1]
+            a_roi = after_gray[:, x0:x1]
+
+            s_b = float(cv2.Laplacian(b_roi, cv2.CV_64F).var())
+            s_a = float(cv2.Laplacian(a_roi, cv2.CV_64F).var())
+
+            improvement = max(s_a - s_b, 0.0)
+
+            regions.append({
+                "region": name,
+                "contribution": round(min(improvement / 20.0, 1.0) * 100, 1)
+            })
+
+        return regions
+
+    # =====================================================
+    # ENHANCEMENT METHODS
+    # =====================================================
     def _enhance_dark(self, img):
         lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
         l, a, b = cv2.split(lab)
@@ -33,37 +406,26 @@ class FabricEnhancer:
 
         img = self._gamma_correction(img, gamma=0.7)
         img = self._sharpen(img, strength=1.0)
-
         return img
 
-    # -------------------------
-    # LIGHT FABRIC
-    # -------------------------
     def _enhance_light(self, img):
         img = cv2.convertScaleAbs(img, alpha=0.9, beta=-10)
         img = cv2.bilateralFilter(img, 9, 75, 75)
         return img
 
-    # -------------------------
-    # PATTERNED FABRIC
-    # -------------------------
     def _enhance_patterned(self, img):
-        smoothed = cv2.edgePreservingFilter(
-            img, flags=1, sigma_s=60, sigma_r=0.4
-        )
-        smoothed = self._sharpen(smoothed, strength=0.6)
-        return smoothed
+        img = cv2.edgePreservingFilter(img, flags=1, sigma_s=60, sigma_r=0.4)
+        img = self._sharpen(img, strength=0.6)
+        return img
 
-    # -------------------------
-    # Utilities
-    # -------------------------
+    # =====================================================
+    # UTILITIES
+    # =====================================================
     def _gamma_correction(self, img, gamma=1.0):
-        invGamma = 1.0 / gamma
+        inv_gamma = 1.0 / gamma
         table = np.array([
-            ((i / 255.0) ** invGamma) * 255
-            for i in range(256)
+            ((i / 255.0) ** inv_gamma) * 255 for i in range(256)
         ]).astype("uint8")
-
         return cv2.LUT(img, table)
 
     def _sharpen(self, img, strength=1.0):

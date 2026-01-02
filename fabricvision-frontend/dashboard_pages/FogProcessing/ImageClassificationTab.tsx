@@ -73,9 +73,12 @@ const ImageClassificationTab: React.FC = () => {
         formData
       );
 
-      setEnhancedImage(
-        `data:image/png;base64,${res.data.enhanced_image_base64}`
-      );
+      const b64 =
+        res.data.enhanced_image_base64 ?? res.data.images?.after_png_base64;
+
+      if (!b64) throw new Error("No enhanced image in response");
+
+      setEnhancedImage(`data:image/png;base64,${b64}`);
     } catch (err: any) {
       setError(err?.response?.data?.detail || "Enhancement failed");
     } finally {
