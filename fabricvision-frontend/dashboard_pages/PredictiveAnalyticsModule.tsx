@@ -4,8 +4,8 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FiZap, FiBarChart2 } from "react-icons/fi";
 
-import ModelAPrediction from "./FeautureDefectsDetection/ModelAPrediction";
-import ModelBRiskAnalytics from "./FeautureDefectsDetection/ModelBRiskAnalytics";
+import ModelAPrediction from "./FutureDefectsDetection/ModelAPrediction";
+import ModelBRiskAnalytics from "./FutureDefectsDetection/ModelBRiskAnalytics";
 
 const tabs = [
   { key: "modelA", label: "Live Prediction (Model A)", icon: FiZap },
