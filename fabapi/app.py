@@ -12,6 +12,10 @@ from fabapi.services.framecapture.anomaly_api import router as anomaly_router
 from fabapi.services.framecapture.quality_api import router as quality_router
 
 # ===============================
+# Component 2 services
+# ===============================
+from fabapi.services.fogcomputing.router import router as fog_router
+# ===============================
 # Component 3 services
 # ===============================
 from fabapi.services.fabricdetection.detector import FabricDefectDetector
@@ -181,6 +185,11 @@ async def detect_batch(files: list[UploadFile] = File(...)):
 app.include_router(motion_router)
 app.include_router(anomaly_router)
 app.include_router(quality_router)
+
+# ===============================
+# Fog Computing router
+# ===============================
+app.include_router(fog_router)
 
 
 # ===============================

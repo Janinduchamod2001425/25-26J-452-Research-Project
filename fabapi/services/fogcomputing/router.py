@@ -1,6 +1,6 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Query
 from fastapi.responses import JSONResponse
-from services.fogcomputing.enhancer import FabricEnhancer
+from fabapi.services.fogcomputing.enhancer import FabricEnhancer
 import numpy as np
 from PIL import Image
 import tensorflow as tf
@@ -170,6 +170,13 @@ async def enhance_image(
     before_b64 = bgr_to_base64_png(before_bgr)
     after_b64 = bgr_to_base64_png(after_bgr)
 
+    ai_analysis = enhancer.analyze_and_safety(
+    used_class=used_class,
+    metrics=metrics,
+    enhance_params=enhance_params,
+    cls_conf=cls_conf
+)
+
     return JSONResponse({
         "filename": file.filename,
         "predicted_class": used_class,
@@ -186,5 +193,6 @@ async def enhance_image(
         },
         "metrics": metrics,
         "region_contribution": region,
-        "quality_timeline": QUALITY_TIMELINE
+        "quality_timeline": QUALITY_TIMELINE,
+        "ai_analysis": ai_analysis
     })
