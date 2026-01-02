@@ -383,7 +383,7 @@ const EnhancementOverviewDashboard: React.FC = () => {
           {/* Quality vs Risk Chart & Alerts Row */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Quality vs Risk Chart */}
-            <motion.div
+            {/* <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
@@ -426,29 +426,8 @@ const EnhancementOverviewDashboard: React.FC = () => {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-            </motion.div>
-
+            </motion.div> */}
             {/* Alerts Panel */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 }}
-              className="bg-white rounded-xl border border-gray-200 shadow-sm p-6"
-            >
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  Active Alerts
-                </h2>
-                <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-medium">
-                  {alerts.length} Active
-                </span>
-              </div>
-              <div className="space-y-3">
-                {alerts.map((alert) => (
-                  <AlertCard key={alert.id} alert={alert} />
-                ))}
-              </div>
-            </motion.div>
           </div>
 
           {/* History Table */}

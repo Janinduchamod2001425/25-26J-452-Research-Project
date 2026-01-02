@@ -1,42 +1,35 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import axios from "axios";
 import { motion } from "framer-motion";
 import Image from "next/image";
+import { useFog } from "./FogContext";
 
-const CLASSIFY_API = "http://127.0.0.1:8000/fogcomputing/classify";
-const ENHANCE_API = "http://127.0.0.1:8000/fogcomputing/enhance";
+const ENHANCE_API =
+  "http://127.0.0.1:8000/fogcomputing/enhance?auto_classify=true";
 
 const ImageClassificationTab: React.FC = () => {
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  const {
+    file,
+    previewUrl,
+    setFileWithPreview,
+    enhanceData,
+    setEnhanceData,
+    loading,
+    setLoading,
+    error,
+    setError,
+  } = useFog();
 
-  const [loading, setLoading] = useState(false);
-  const [enhancing, setEnhancing] = useState(false);
-
-  const [result, setResult] = useState<any>(null);
-  const [enhancedImage, setEnhancedImage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  // -------------------------
-  // File select
-  // -------------------------
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = e.target.files?.[0];
-    if (!selected) return;
-
-    setFile(selected);
-    setPreview(URL.createObjectURL(selected));
-    setResult(null);
-    setEnhancedImage(null);
+    const selected = e.target.files?.[0] || null;
+    setFileWithPreview(selected);
+    setEnhanceData(null);
     setError(null);
   };
 
-  // -------------------------
-  // Classification
-  // -------------------------
-  const handleClassify = async () => {
+  const handleRun = async () => {
     if (!file) return;
 
     setLoading(true);
@@ -46,69 +39,61 @@ const ImageClassificationTab: React.FC = () => {
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await axios.post(CLASSIFY_API, formData);
-      setResult(res.data);
+      const res = await axios.post(ENHANCE_API, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      setEnhanceData(res.data);
     } catch (err: any) {
-      setError(err?.response?.data?.detail || "Classification failed");
+      setError(err?.response?.data?.detail || "Failed. Check API.");
     } finally {
       setLoading(false);
     }
   };
 
-  // -------------------------
-  // Enhancement
-  // -------------------------
-  const handleEnhancement = async () => {
-    if (!file || !result?.predicted_class) return;
-
-    setEnhancing(true);
-    setError(null);
-
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const res = await axios.post(
-        `${ENHANCE_API}?fabric_class=${result.predicted_class}`,
-        formData
-      );
-
-      const b64 =
-        res.data.enhanced_image_base64 ?? res.data.images?.after_png_base64;
-
-      if (!b64) throw new Error("No enhanced image in response");
-
-      setEnhancedImage(`data:image/png;base64,${b64}`);
-    } catch (err: any) {
-      setError(err?.response?.data?.detail || "Enhancement failed");
-    } finally {
-      setEnhancing(false);
-    }
-  };
+  const probs = enhanceData?.classification?.probabilities || null;
+  const predictedClass = enhanceData?.predicted_class;
+  const confidence = enhanceData?.classification?.confidence;
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-6 max-w-6xl mx-auto"
+      className="space-y-6 max-w-5xl mx-auto"
     >
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">
           Fabric Classification & Enhancement
         </h1>
-        <p className="text-gray-600">Class-aware edge-level enhancement</p>
+        <p className="text-gray-600">
+          Upload once → class + confidence + probabilities, and Quality
+          Analytics tab will show metrics.
+        </p>
       </div>
 
       {/* Upload */}
-      <div className="bg-white p-6 rounded-xl border shadow-sm">
-        <input type="file" accept="image/*" onChange={handleFileChange} />
+      <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Upload Fabric Image
+        </label>
 
-        {preview && (
-          <div className="mt-4 relative h-56 border rounded-lg bg-gray-50">
+        <input
+          type="file"
+          accept="image/png,image/jpeg"
+          onChange={handleFileChange}
+          className="block w-full text-sm text-gray-500
+            file:mr-4 file:py-2 file:px-4
+            file:rounded-lg file:border-0
+            file:text-sm file:font-semibold
+            file:bg-indigo-50 file:text-indigo-700
+            hover:file:bg-indigo-100"
+        />
+
+        {previewUrl && (
+          <div className="mt-4 relative w-full h-64 rounded-lg overflow-hidden border bg-gray-50">
             <Image
-              src={preview}
-              alt="preview"
+              src={previewUrl}
+              alt="Preview"
               fill
               className="object-contain"
             />
@@ -116,101 +101,86 @@ const ImageClassificationTab: React.FC = () => {
         )}
 
         <button
-          onClick={handleClassify}
+          onClick={handleRun}
           disabled={!file || loading}
-          className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-lg"
+          className="mt-4 px-6 py-2 rounded-lg bg-indigo-600 text-white font-medium
+            hover:bg-indigo-700 disabled:opacity-50"
         >
-          {loading ? "Classifying..." : "Run Classification"}
+          {loading ? "Processing..." : "Run Classification"}
         </button>
       </div>
 
-      {/* Classification Result */}
-      {result && (
-        <div className="bg-white p-6 rounded-xl border shadow-sm space-y-6">
-          <div className="flex justify-between items-center">
+      {/* Result */}
+      {enhanceData && (
+        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm space-y-5">
+          <h2 className="text-lg font-semibold text-gray-900">
+            Classification Result
+          </h2>
+
+          <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Predicted Class</p>
+              <p className="text-sm text-gray-600">Predicted Class</p>
               <p className="text-2xl font-bold text-indigo-600">
-                {result.predicted_class}
+                {predictedClass}
               </p>
             </div>
+
             <div className="text-right">
-              <p className="text-sm text-gray-500">Confidence</p>
+              <p className="text-sm text-gray-600">Confidence</p>
               <p className="text-2xl font-bold text-emerald-600">
-                {(result.confidence * 100).toFixed(1)}%
+                {confidence === null || confidence === undefined
+                  ? "—"
+                  : `${(confidence * 100).toFixed(1)}%`}
               </p>
             </div>
           </div>
 
-          {/* Probability Panel */}
-          <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">
-              Class Probabilities
-            </h3>
-            <div className="space-y-3">
-              {Object.entries(result.probabilities).map(([cls, prob]: any) => (
-                <div key={cls}>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="capitalize">{cls}</span>
-                    <span>{(prob * 100).toFixed(1)}%</span>
-                  </div>
-                  <div className="w-full h-2 bg-gray-100 rounded-full">
-                    <div
-                      className="h-2 bg-indigo-500 rounded-full transition-all"
-                      style={{ width: `${prob * 100}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Enhancement button */}
-          <button
-            onClick={handleEnhancement}
-            disabled={enhancing}
-            className="px-6 py-2 bg-emerald-600 text-white rounded-lg"
-          >
-            {enhancing ? "Enhancing..." : "Run Enhancement"}
-          </button>
-        </div>
-      )}
-
-      {/* Before vs After */}
-      {enhancedImage && preview && (
-        <div className="bg-white p-6 rounded-xl border shadow-sm">
-          <h2 className="text-lg font-semibold mb-4">Enhancement Comparison</h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Probability bars (the “previous panel” you asked for) */}
+          {probs && (
             <div>
-              <p className="text-sm text-gray-600 mb-2">Original</p>
-              <div className="relative h-64 border rounded-lg">
-                <Image
-                  src={preview}
-                  alt="before"
-                  fill
-                  className="object-contain"
-                />
+              <h3 className="text-sm font-semibold text-gray-700 mb-2">
+                Class Probabilities
+              </h3>
+
+              <div className="space-y-2">
+                {Object.entries(probs)
+                  .sort((a: any, b: any) => b[1] - a[1])
+                  .map(([cls, prob]: any) => (
+                    <div key={cls}>
+                      <div className="flex justify-between text-sm">
+                        <span
+                          className={`${
+                            cls === predictedClass
+                              ? "font-semibold text-indigo-700"
+                              : ""
+                          }`}
+                        >
+                          {cls}
+                        </span>
+                        <span>{(prob * 100).toFixed(1)}%</span>
+                      </div>
+                      <div className="w-full h-2 bg-gray-100 rounded-full">
+                        <div
+                          className={`h-2 rounded-full ${
+                            cls === predictedClass
+                              ? "bg-indigo-600"
+                              : "bg-indigo-300"
+                          }`}
+                          style={{ width: `${Math.min(100, prob * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
               </div>
             </div>
-
-            <div>
-              <p className="text-sm text-gray-600 mb-2">Enhanced</p>
-              <div className="relative h-64 border rounded-lg">
-                <Image
-                  src={enhancedImage}
-                  alt="after"
-                  fill
-                  className="object-contain"
-                />
-              </div>
-            </div>
-          </div>
+          )}
         </div>
       )}
 
       {error && (
-        <div className="bg-red-50 text-red-700 p-4 rounded-lg">{error}</div>
+        <div className="bg-red-50 text-red-700 p-4 rounded-lg border border-red-200">
+          {error}
+        </div>
       )}
     </motion.div>
   );
