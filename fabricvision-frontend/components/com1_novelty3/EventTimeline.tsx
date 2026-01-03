@@ -34,7 +34,7 @@ const events: EventItem[] = [
     time: "10:09:03",
     label: "Irregularity window forwarded",
     detail:
-      "Segment [frames 1035–1050] tagged as high risk, forwarded to Component 3.",
+      "Segment [frames 1035–1050] tagged as high risk and forwarded to the fog layer for targeted enhancement.",
     severity: "warning",
   },
 ];

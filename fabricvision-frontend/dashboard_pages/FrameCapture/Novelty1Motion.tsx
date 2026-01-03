@@ -20,8 +20,9 @@ import {
   type ChartOptions,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
+import { AlertTriangle, Pause, Play } from "lucide-react";
 
-// Register Chart.js components
+/* -------------------- Chart Register -------------------- */
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -32,7 +33,7 @@ ChartJS.register(
   Filler,
 );
 
-// -------------------- Fonts --------------------
+/* -------------------- Font -------------------- */
 const inter = Inter({
   subsets: ["latin"],
   weight: ["400", "500", "700"],
@@ -40,64 +41,49 @@ const inter = Inter({
   variable: "--font-inter",
 });
 
-// -------------------- Types --------------------
+/* -------------------- Motion API -------------------- */
+const callMotionAPI = async (base64Image: string) => {
+  const blob = await fetch(base64Image).then((r) => r.blob());
+  const formData = new FormData();
+  formData.append("file", blob, "frame.jpg");
+
+  const res = await fetch("http://127.0.0.1:8000/motion/predict", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!res.ok) throw new Error("Motion API failed");
+  return res.json();
+};
+
+/* -------------------- Types -------------------- */
 type MotionState = "ACTIVE" | "IDLE" | "UNSTABLE";
 
-interface MotionStatus {
-  state: MotionState;
-  fps: number;
-  mode: "Fabric Roll" | "Cut Piece";
-  confidence: number; // 0–1
-}
-
-interface FrameStats {
-  totalFrames: number;
-  savedFrames: number;
-  ignoredFrames: number;
-}
-
-interface IdleSummary {
-  longestGapSec: number;
-  events: number;
-  totalIdleSec: number;
-}
-
 interface MotionTimelinePoint {
-  label: string; // e.g. "10:20", "10:21"
+  label: string;
   state: MotionState;
 }
 
-interface CardProps {
-  children: React.ReactNode;
-  className?: string;
-}
-
-interface LogEntryProps {
+interface LogItem {
   time: string;
   message: string;
 }
 
-// -------------------- Mock Data (replace with real API later) --------------------
-const motionStatus: MotionStatus = {
-  state: "ACTIVE",
+/* -------------------- Static Info -------------------- */
+const motionStatus = {
+  state: "ACTIVE" as MotionState,
   fps: 24,
-  mode: "Fabric Roll",
+  mode: "Fabric Roll" as const,
   confidence: 0.95,
 };
 
-const frameStats: FrameStats = {
-  totalFrames: 1235,
-  savedFrames: 980,
-  ignoredFrames: 255,
-};
-
-const idleSummary: IdleSummary = {
+const idleSummary = {
   longestGapSec: 12,
   events: 4,
   totalIdleSec: 38,
 };
 
-const timelinePoints: MotionTimelinePoint[] = [
+const initialTimeline: MotionTimelinePoint[] = [
   { label: "10:20", state: "IDLE" },
   { label: "10:21", state: "ACTIVE" },
   { label: "10:22", state: "ACTIVE" },
@@ -107,249 +93,241 @@ const timelinePoints: MotionTimelinePoint[] = [
   { label: "10:26", state: "ACTIVE" },
 ];
 
-interface LogItem {
-  time: string;
-  message: string;
-}
-
-const logs: LogItem[] = [
+const initialLogs: LogItem[] = [
   { time: "10:22:01", message: "Fabric Detected" },
   { time: "10:22:02", message: "Motion State: ACTIVE" },
   { time: "10:22:03", message: "Frame Captured" },
-  { time: "10:22:04", message: "Motion State: IDLE" },
-  { time: "10:22:06", message: "Motion State: ACTIVE" },
-  { time: "10:22:10", message: "Idle Gap: 6s" },
 ];
 
-// -------------------- Animations --------------------
+/* -------------------- Animations -------------------- */
 const fadeIn: Variants = {
   hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.6 } },
-  exit: { opacity: 0, y: -20, transition: { duration: 0.4 } },
+  visible: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -20 },
 };
 
-// -------------------- Reusable Components --------------------
-const Card: React.FC<CardProps> = ({ children, className = "" }) => (
+/* -------------------- Reusable -------------------- */
+const Card = ({ children, className = "" }: any) => (
   <motion.div
     variants={fadeIn}
-    className={`rounded-2xl  shadow-lg p-6 border border-gray-200 ${className}`}
+    className={`rounded-2xl shadow-lg p-6 border border-gray-200 ${className}`}
   >
     {children}
   </motion.div>
 );
 
-const LogEntry: React.FC<LogEntryProps> = ({ time, message }) => (
+const LogEntry = ({ time, message }: LogItem) => (
   <div className="flex justify-between text-sm text-gray-600 py-1 border-b border-gray-100">
     <span className="font-mono">{time}</span>
     <span>{message}</span>
   </div>
 );
 
-// -------------------- Chart.js config --------------------
-const stateToNumeric = (state: MotionState): number => {
-  if (state === "IDLE") return 0;
-  if (state === "ACTIVE") return 1;
-  return 0.5; // UNSTABLE
-};
-
-const timelineLabels: string[] = timelinePoints.map((p) => p.label);
-const timelineValues: number[] = timelinePoints.map((p) =>
-  stateToNumeric(p.state),
-);
-
-// Add color configuration for the chart
-const getPointColor = (state: MotionState): string => {
-  switch (state) {
-    case "ACTIVE":
-      return "#10B981"; // Green
-    case "IDLE":
-      return "#EF4444"; // Red
-    case "UNSTABLE":
-      return "#F59E0B"; // Amber
-    default:
-      return "#6B7280"; // Gray
-  }
-};
-
-const getPointBorderColor = (state: MotionState): string => {
-  switch (state) {
-    case "ACTIVE":
-      return "#047857"; // Darker Green
-    case "IDLE":
-      return "#DC2626"; // Darker Red
-    case "UNSTABLE":
-      return "#D97706"; // Darker Amber
-    default:
-      return "#4B5563"; // Darker Gray
-  }
-};
-
-const getGradientColors = (ctx: CanvasRenderingContext2D): CanvasGradient => {
-  const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-  gradient.addColorStop(0, "rgba(59, 130, 246, 0.3)"); // Blue with opacity
-  gradient.addColorStop(0.5, "rgba(59, 130, 246, 0.15)");
-  gradient.addColorStop(1, "rgba(59, 130, 246, 0.05)");
-  return gradient;
-};
-
-const motionTimelineData: ChartData<"line"> = {
-  labels: timelineLabels,
-  datasets: [
-    {
-      label: "Motion State",
-      data: timelineValues,
-      fill: true,
-      tension: 0.35,
-      pointRadius: 6,
-      pointHoverRadius: 8,
-      pointBackgroundColor: timelinePoints.map((p) => getPointColor(p.state)),
-      pointBorderColor: timelinePoints.map((p) => getPointBorderColor(p.state)),
-      pointBorderWidth: 2,
-      backgroundColor: (context) => {
-        const chart = context.chart;
-        const { ctx, chartArea } = chart;
-        if (!chartArea) return "rgba(59, 130, 246, 0.1)";
-        return getGradientColors(ctx);
-      },
-      borderColor: "#3B82F6", // Blue border
-      borderWidth: 3,
-      pointHoverBackgroundColor: "#FFFFFF",
-      pointHoverBorderColor: "#1D4ED8",
-      pointHoverBorderWidth: 3,
-    },
-  ],
-};
-
-const motionTimelineOptions: ChartOptions<"line"> = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: {
-      display: false,
-    },
-    tooltip: {
-      backgroundColor: "rgba(255, 255, 255, 0.95)",
-      titleColor: "#111827",
-      bodyColor: "#374151",
-      borderColor: "#E5E7EB",
-      borderWidth: 1,
-      padding: 12,
-      cornerRadius: 8,
-      displayColors: false,
-      callbacks: {
-        label: (ctx) => {
-          const value = ctx.parsed.y;
-          let label: MotionState = "IDLE";
-          let color = "#EF4444"; // Red
-          if (value === 1) {
-            label = "ACTIVE";
-            color = "#10B981"; // Green
-          } else if (value === 0.5) {
-            label = "UNSTABLE";
-            color = "#F59E0B"; // Amber
-          }
-          return ` ${label}`;
-        },
-        labelColor: (ctx) => {
-          const value = ctx.parsed.y;
-          let color = "#EF4444"; // Red
-          if (value === 1)
-            color = "#10B981"; // Green
-          else if (value === 0.5) color = "#F59E0B"; // Amber
-          return {
-            borderColor: color,
-            backgroundColor: color,
-            borderWidth: 3,
-            borderRadius: 2,
-          };
-        },
-      },
-    },
-  },
-  scales: {
-    x: {
-      grid: {
-        color: "rgba(229, 231, 235, 0.5)",
-      },
-      ticks: {
-        color: "#6B7280",
-        font: {
-          size: 11,
-        },
-      },
-    },
-    y: {
-      min: -0.1,
-      max: 1.1,
-      grid: {
-        color: "rgba(229, 231, 235, 0.5)",
-      },
-      ticks: {
-        color: "#6B7280",
-        font: {
-          size: 11,
-        },
-        callback: function (value) {
-          if (value === 0) return "IDLE";
-          if (value === 0.5) return "UNSTABLE";
-          if (value === 1) return "ACTIVE";
-          return "";
-        },
-      },
-    },
-  },
-  interaction: {
-    intersect: false,
-    mode: "index",
-  },
-  animation: {
-    duration: 1000,
-  },
-};
-
+/* ============================ MAIN ============================ */
 const Novelty1Motion: React.FC = () => {
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState(true);
+  const [demoMode, setDemoMode] = useState(false);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [liveFrame, setLiveFrame] = useState<string | null>(null);
+  const [apiResult, setApiResult] = useState<any>(null);
 
-  // 2-second loading spinner
+  const [logs, setLogs] = useState<LogItem[]>(initialLogs);
+  const [timeline, setTimeline] =
+    useState<MotionTimelinePoint[]>(initialTimeline);
+
+  const [recentStates, setRecentStates] = useState<MotionState[]>([]);
+
+  // Idle analytics state
+  const [idleEvents, setIdleEvents] = useState(0);
+  const [totalIdleSec, setTotalIdleSec] = useState(0);
+  const [longestIdleSec, setLongestIdleSec] = useState(0);
+
+  // Internal trackers
+  const [currentIdleStart, setCurrentIdleStart] = useState<number | null>(null);
+  const [lastMotionState, setLastMotionState] = useState<MotionState>("IDLE");
+
+  /* ✅ DYNAMIC FRAME STATS */
+  const [frameStats, setFrameStats] = useState({
+    totalFrames: 0,
+    savedFrames: 0,
+    ignoredFrames: 0,
+  });
+
+  /* Loader */
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 2000);
-    return () => clearTimeout(timer);
+    const t = setTimeout(() => setLoading(false), 2000);
+    return () => clearTimeout(t);
   }, []);
 
-  const activeRatio =
-    (frameStats.savedFrames / frameStats.totalFrames) * 100 || 0;
-  const idleRatio = 100 - activeRatio;
-  const reduction =
-    (frameStats.ignoredFrames / frameStats.totalFrames) * 100 || 0;
+  useEffect(() => {
+    if (!videoFile) return;
 
-  if (loading) {
-    return (
-      <motion.div
-        className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-blue-50"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-      >
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-          className="h-12 w-12 border-4 border-indigo-500 rounded-full border-t-transparent"
-        ></motion.div>
-      </motion.div>
-    );
-  }
+    const url = URL.createObjectURL(videoFile);
+    const video = document.getElementById("demo-video") as HTMLVideoElement;
+    if (video) video.src = url;
+
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [videoFile]);
+
+  /* Video → Frame → API */
+  useEffect(() => {
+    if (!demoMode || !videoFile) return;
+
+    const video = document.getElementById("demo-video") as HTMLVideoElement;
+    const canvas = document.getElementById("demo-canvas") as HTMLCanvasElement;
+    if (!video || !canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const interval = setInterval(async () => {
+      if (video.videoWidth === 0) return;
+
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0);
+
+      const frame = canvas.toDataURL("image/jpeg");
+      setLiveFrame(frame);
+
+      const result = await callMotionAPI(frame);
+      setApiResult(result);
+
+      const isActive = result.prediction === "active";
+
+      const now = Date.now();
+
+      // Transition: ACTIVE → IDLE
+      if (!isActive && lastMotionState !== "IDLE") {
+        setIdleEvents((prev) => prev + 1);
+        setCurrentIdleStart(now);
+      }
+
+      // Still IDLE
+      if (!isActive && currentIdleStart !== null) {
+        const idleDurationSec = Math.floor((now - currentIdleStart) / 1000);
+
+        setTotalIdleSec((prev) =>
+          idleDurationSec > prev ? idleDurationSec : prev,
+        );
+
+        setLongestIdleSec((prev) =>
+          idleDurationSec > prev ? idleDurationSec : prev,
+        );
+      }
+
+      // Transition: IDLE → ACTIVE
+      if (isActive && lastMotionState === "IDLE") {
+        setCurrentIdleStart(null);
+      }
+
+      // Save last state
+      setLastMotionState(isActive ? "ACTIVE" : "IDLE");
+
+      setRecentStates((prev) => {
+        const nextState: MotionState = isActive ? "ACTIVE" : "IDLE";
+        const updated: MotionState[] = [...prev, nextState];
+        return updated.slice(-10);
+      });
+
+      /* ✅ UPDATE FRAME METRICS */
+      setFrameStats((prev) => ({
+        totalFrames: prev.totalFrames + 1,
+        savedFrames: prev.savedFrames + (isActive ? 1 : 0),
+        ignoredFrames: prev.ignoredFrames + (isActive ? 0 : 1),
+      }));
+
+      setLogs((prev) => [
+        {
+          time: new Date().toLocaleTimeString(),
+          message: `Motion State: ${result.prediction.toUpperCase()}`,
+        },
+        ...prev.slice(0, 14),
+      ]);
+
+      setTimeline((prev) => [
+        ...prev.slice(1),
+        {
+          label: new Date().toLocaleTimeString().slice(0, 5),
+          state: isActive ? "ACTIVE" : "IDLE",
+        },
+      ]);
+    }, 1200);
+
+    return () => clearInterval(interval);
+  }, [demoMode, videoFile]);
+
+  /* Derived Metrics */
+  const activeRatio =
+    frameStats.totalFrames > 0
+      ? (frameStats.savedFrames / frameStats.totalFrames) * 100
+      : 0;
+
+  const idleRatio = 100 - activeRatio;
+
+  const reduction =
+    frameStats.totalFrames > 0
+      ? (frameStats.ignoredFrames / frameStats.totalFrames) * 100
+      : 0;
+
+  /* Chart */
+  const motionTimelineData: ChartData<"line"> = {
+    labels: timeline.map((t) => t.label),
+    datasets: [
+      {
+        label: "Motion",
+        data: timeline.map((t) =>
+          t.state === "ACTIVE" ? 1 : t.state === "IDLE" ? 0 : 0.5,
+        ),
+        fill: true,
+        borderColor: "#3B82F6",
+        tension: 0.35,
+      },
+    ],
+  };
+
+  const motionTimelineOptions: ChartOptions<"line"> = {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: { y: { min: 0, max: 1 } },
+  };
+
+  const derivedState: MotionState =
+    demoMode && apiResult
+      ? apiResult.prediction === "active"
+        ? "ACTIVE"
+        : "IDLE"
+      : "IDLE";
+
+  const stabilityScore =
+    recentStates.length === 0
+      ? 0
+      : recentStates.filter((s) => s === "ACTIVE").length / recentStates.length;
+
+  if (loading) return <div className="min-h-screen" />;
 
   return (
-    <AnimatePresence mode="wait">
+    <AnimatePresence>
       <motion.div
-        key="frame-dashboard"
         initial="hidden"
         animate="visible"
         exit="exit"
         variants={fadeIn}
         className={`min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 ${inter.className}`}
       >
+        {/* Hidden */}
+        <video
+          id="demo-video"
+          src={videoFile ? URL.createObjectURL(videoFile) : undefined}
+          autoPlay
+          muted
+          loop
+          className="hidden"
+        />
+        <canvas id="demo-canvas" className="hidden" />
+
         {/* -------------------- MAIN GRID -------------------- */}
         <div className="max-w-[1500px] mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* LEFT COLUMN */}
@@ -370,8 +348,12 @@ const Novelty1Motion: React.FC = () => {
                 </div>
                 <div className="flex justify-between items-center mt-3">
                   <span className="font-semibold text-gray-700">State</span>
-                  <span className="px-4 py-1 rounded-full bg-green-600 text-white font-bold">
-                    {motionStatus.state}
+                  <span
+                    className={`px-4 py-1 rounded-full text-white font-bold ${
+                      derivedState === "ACTIVE" ? "bg-green-600" : "bg-red-600"
+                    }`}
+                  >
+                    {derivedState}
                   </span>
                 </div>
                 <div className="flex justify-between items-center mt-1">
@@ -379,30 +361,88 @@ const Novelty1Motion: React.FC = () => {
                     Confidence
                   </span>
                   <span className="font-bold text-gray-800">
-                    {(motionStatus.confidence * 100).toFixed(0)}%
+                    {apiResult ? (apiResult.confidence * 100).toFixed(0) : "—"}%
                   </span>
                 </div>
               </div>
             </Card>
 
-            {/* Live Preview Card (static image) */}
-            <Card className="min-h-[220px]">
+            {/* 🔹 Live Preview + Demo Video Input */}
+            <Card className="min-h-[260px]">
               <h3 className="text-xl font-bold text-gray-800 mb-4">
                 Live Preview (Sample Frame)
               </h3>
+
+              {/* Preview Area */}
               <div className="relative w-full h-40 rounded-xl overflow-hidden border border-gray-200 bg-black/5">
-                {/* Replace src with your real frame image / API later */}
-                <Image
-                  src={Live}
-                  alt="Current fabric frame"
-                  fill
-                  className="object-cover"
-                />
+                {demoMode && liveFrame ? (
+                  <img
+                    src={liveFrame}
+                    alt="Live Frame"
+                    className="object-cover w-full h-full"
+                  />
+                ) : (
+                  <Image
+                    src={Live}
+                    alt="Current fabric frame"
+                    fill
+                    className="object-cover"
+                  />
+                )}
               </div>
+
+              {/* Description */}
               <p className="text-xs text-gray-500 mt-2">
-                Static sample image for demo. In production, this will show the
-                latest captured frame when motion is ACTIVE.
+                {demoMode
+                  ? "Live frames sampled from uploaded fabric roll video."
+                  : "Static sample image for demo. In production, this will show the latest captured frame when motion is ACTIVE."}
               </p>
+
+              {/* Divider */}
+              <div className="border-t border-gray-200 my-3" />
+
+              {/* Video Upload */}
+              <div>
+                <label className="text-sm font-semibold text-gray-700 block mb-1">
+                  Demo Mode – Upload Fabric Roll Video
+                </label>
+
+                <div>
+                  <input
+                    type="file"
+                    accept="video/mp4"
+                    id="video-upload"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (!e.target.files?.[0]) return;
+                      setVideoFile(e.target.files[0]);
+                      setDemoMode(true);
+                    }}
+                  />
+
+                  <label
+                    htmlFor="video-upload"
+                    className="
+                      inline-flex items-center gap-2
+                      px-4 py-2
+                      rounded-full
+                      bg-blue-600 text-white
+                      text-xs mt-0.5 font-semibold
+                      cursor-pointer
+                      hover:bg-blue-700
+                      transition
+                      shadow-sm
+                    "
+                  >
+                    ▶ Upload Demo Video
+                  </label>
+                </div>
+
+                <p className="text-[11px] text-gray-500 mt-1">
+                  Used only for demonstration. Replaces live camera feed
+                  temporarily.
+                </p>
+              </div>
             </Card>
 
             {/* Frame Stats & Efficiency */}
@@ -496,49 +536,6 @@ const Novelty1Motion: React.FC = () => {
                 ))}
               </div>
             </Card>
-          </div>
-
-          {/* RIGHT COLUMN */}
-          <div className="space-y-6">
-            {/* Motion Stability */}
-            <Card className="min-h-[150px]">
-              <h3 className="text-xl font-bold text-gray-800 mb-4">
-                Motion Stability
-              </h3>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-700 font-semibold text-lg">
-                  Stability Score
-                </span>
-                <span className="text-3xl font-bold text-green-600">0.92</span>
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                1.0 = perfectly stable motion • 0 = fully idle. Computed from
-                variance of motion states.
-              </p>
-            </Card>
-
-            {/* Idle Event Summary */}
-            <Card className="min-h-[170px]">
-              <h3 className="text-xl font-bold text-gray-800 mb-4">
-                Idle Event Summary
-              </h3>
-              <div className="space-y-3 text-gray-700">
-                <div className="flex justify-between">
-                  <span>Idle Events</span>
-                  <span className="font-bold">{idleSummary.events}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Longest Idle Gap</span>
-                  <span className="font-bold">
-                    {idleSummary.longestGapSec}s
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Total Idle Duration</span>
-                  <span className="font-bold">{idleSummary.totalIdleSec}s</span>
-                </div>
-              </div>
-            </Card>
 
             {/* Camera Health */}
             <Card className="min-h-[190px]">
@@ -567,24 +564,131 @@ const Novelty1Motion: React.FC = () => {
               </ul>
             </Card>
           </div>
+
+          {/* RIGHT COLUMN */}
+          <div className="space-y-6">
+            {/* Capture Rules */}
+            <Card className="border border-gray-300 bg-white">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">
+                Frame Capture Logic
+              </h3>
+
+              <div className="space-y-3">
+                {/* ACTIVE */}
+                <div className="flex items-start gap-4 p-3 border-l-4 border-green-500 bg-green-50 rounded">
+                  <Play className="w-6 h-6 text-green-600 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-green-700">
+                      ACTIVE — Capture Frames
+                    </p>
+                    <p className="text-xs text-gray-700">
+                      Stable fabric motion • Full FPS capture
+                    </p>
+                  </div>
+                </div>
+
+                {/* UNSTABLE */}
+                <div className="flex items-start gap-4 p-3 border-l-4 border-amber-500 bg-amber-50 rounded">
+                  <AlertTriangle className="w-6 h-6 text-amber-600 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-amber-700">
+                      UNSTABLE — Adaptive Capture
+                    </p>
+                    <p className="text-xs text-gray-700">
+                      Motion fluctuation • Burst capture near transitions
+                    </p>
+                  </div>
+                </div>
+
+                {/* IDLE */}
+                <div className="flex items-start gap-4 p-3 border-l-4 border-red-500 bg-red-50 rounded">
+                  <Pause className="w-6 h-6 text-red-600 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-red-700">
+                      IDLE — Skip Frames
+                    </p>
+                    <p className="text-xs text-gray-700">
+                      No effective motion • Frames ignored
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <p className="mt-4 text-[11px] text-gray-500 leading-relaxed">
+                Rule-based capture logic applied at the edge to reduce redundant
+                frames before downstream processing.
+              </p>
+            </Card>
+
+            {/* Motion Stability */}
+            <Card className="min-h-[150px]">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">
+                Motion Stability
+              </h3>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-700 font-semibold text-lg">
+                  Stability Score
+                </span>
+                <span
+                  className={`text-3xl font-bold ${
+                    stabilityScore > 0.7
+                      ? "text-green-600"
+                      : stabilityScore > 0.4
+                        ? "text-amber-500"
+                        : "text-red-600"
+                  }`}
+                >
+                  {stabilityScore.toFixed(2)}
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                Computed from last {recentStates.length} frames • 1.0 = stable
+                motion
+              </p>
+
+              <p className="text-xs text-red-500 font-normal italic mt-2">
+                (Note: 1.0 = continuous stable motion • 0 = no effective motion)
+              </p>
+            </Card>
+
+            {/* Idle Event Summary */}
+            <Card className="min-h-[170px]">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">
+                Idle Event Summary
+              </h3>
+
+              <div className="space-y-3 text-gray-700">
+                <div className="flex justify-between">
+                  <span>Idle Events</span>
+                  <span className="font-bold">{idleEvents}</span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span>Longest Idle Gap</span>
+                  <span className="font-bold">{longestIdleSec}s</span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span>Total Idle Duration</span>
+                  <span className="font-bold">{totalIdleSec}s</span>
+                </div>
+              </div>
+            </Card>
+          </div>
         </div>
 
-        {/* FOOTER */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="max-w-[1500px] mx-auto mt-10 pt-6 border-t border-gray-200 text-sm text-gray-500"
-        >
-          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
+        {/* Footer */}
+        <div className="max-w-[1500px] mx-auto mt-10 pt-6 border-t border-gray-200 text-sm text-gray-500">
+          <div className="flex justify-between">
             <span>
               <strong>Operator Dashboard • Novelty 1</strong> — Motion-Driven
               Capture
             </span>
             <span className="font-mono">
-              Session ID: MD-2025-01-01-001 • Updated Now
+              Session ID: MD-2025-01-01-001 • LIVE
             </span>
           </div>
-        </motion.div>
+        </div>
       </motion.div>
     </AnimatePresence>
   );
