@@ -1,13 +1,80 @@
 "use client";
 
 import { defectData } from "@/data/defectData";
-import { FiMaximize2, FiDownload, FiCamera, FiPlay, FiPause, FiClock, FiZap, FiTarget, FiPieChart } from "react-icons/fi";
-import { useState } from "react";
+import { FiMaximize2, FiDownload, FiCamera, FiPlay, FiPause, FiClock, FiZap, FiTarget, FiPieChart, FiAlertCircle } from "react-icons/fi";
+import { useState, useEffect } from "react";
 
-const AnnotatedDefectImage = () => {
-  const { annotatedImage, encoder } = defectData;
+interface AnnotatedDefectImageProps {
+  apiData?: any;
+}
+
+interface DefectBox {
+  id: number;
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  colorClass: string;
+  textColorClass: string;
+  severity: string;
+}
+
+interface ColorMap {
+  [key: string]: string;
+}
+
+const AnnotatedDefectImage: React.FC<AnnotatedDefectImageProps> = ({ apiData }) => {
+  const { encoder } = defectData;
   const [isPlaying, setIsPlaying] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [imageUrl, setImageUrl] = useState(defectData.annotatedImage);
+
+  useEffect(() => {
+    if (apiData?.annotated_image) {
+      setImageUrl(apiData.annotated_image);
+    } else {
+      setImageUrl(defectData.annotatedImage);
+    }
+  }, [apiData]);
+
+  const getDefectBoxes = (): DefectBox[] => {
+    if (!apiData?.defects?.length) return [];
+    
+    return apiData.defects.map((defect: any, index: number) => {
+      const bbox = defect.bounding_box;
+      const colorMap: ColorMap = {
+        "cut": "border-red-500",
+        "holes": "border-blue-500", 
+        "stain": "border-yellow-500",
+        "lines": "border-orange-500"
+      };
+      
+      const colorClass = colorMap[defect.type] || "border-gray-500";
+      const textColorMap: ColorMap = {
+        "cut": "bg-red-500",
+        "holes": "bg-blue-500",
+        "stain": "bg-yellow-500",
+        "lines": "bg-orange-500"
+      };
+      
+      const textColorClass = textColorMap[defect.type] || "bg-gray-500";
+      
+      return {
+        id: defect.id,
+        label: `${defect.type} ${defect.confidence}`,
+        x: bbox.x1 / 1920 * 100,
+        y: bbox.y1 / 1080 * 100,
+        width: ((bbox.x2 - bbox.x1) / 1920 * 100),
+        height: ((bbox.y2 - bbox.y1) / 1080 * 100),
+        colorClass,
+        textColorClass,
+        severity: defect.severity
+      };
+    });
+  };
+
+  const defectBoxes = getDefectBoxes();
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
@@ -15,7 +82,10 @@ const AnnotatedDefectImage = () => {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-xl font-bold text-gray-900">Defect Visualization</h2>
-            <p className="text-gray-600 text-sm mt-1">AI-annotated defect detection results</p>
+            <p className="text-gray-600 text-sm mt-1">
+              {apiData ? "AI-annotated detection results" : "AI-annotated defect detection results"}
+              {apiData && ` • ${apiData.summary?.total_defects} defect(s) found`}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <button 
@@ -54,28 +124,52 @@ const AnnotatedDefectImage = () => {
             style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'center' }}
           >
             <img
-              src={annotatedImage}
+              src={imageUrl}
               className="w-full h-full object-cover"
               alt="Annotated defect detection"
             />
             
-            <div className="absolute top-1/4 left-1/4 w-20 h-20 border-2 border-red-500 rounded-lg">
-              <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-red-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg">
-                Hole Defect
+            {defectBoxes.map((box: DefectBox) => (
+              <div
+                key={box.id}
+                className={`absolute border-2 ${box.colorClass} rounded-lg`}
+                style={{
+                  left: `${box.x}%`,
+                  top: `${box.y}%`,
+                  width: `${box.width}%`,
+                  height: `${box.height}%`
+                }}
+              >
+                <div className={`absolute -top-8 left-1/2 transform -translate-x-1/2 ${box.textColorClass} text-white px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg`}>
+                  {box.label}
+                </div>
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-current rounded-full animate-pulse"></div>
               </div>
-              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-            </div>
+            ))}
             
-            <div className="absolute bottom-1/3 right-1/3 w-16 h-16 border-2 border-yellow-500 rounded-lg">
-              <div className="absolute -top-7 left-1/2 transform -translate-x-1/2 bg-yellow-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg">
-                Stain
-              </div>
-            </div>
+            {!apiData && (
+              <>
+                <div className="absolute top-1/4 left-1/4 w-20 h-20 border-2 border-red-500 rounded-lg">
+                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-red-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg">
+                    Hole Defect
+                  </div>
+                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                </div>
+                
+                <div className="absolute bottom-1/3 right-1/3 w-16 h-16 border-2 border-yellow-500 rounded-lg">
+                  <div className="absolute -top-7 left-1/2 transform -translate-x-1/2 bg-yellow-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg">
+                    Stain
+                  </div>
+                </div>
+              </>
+            )}
           </div>
           
           <div className="absolute bottom-4 left-4 bg-black/80 text-white px-4 py-3 rounded-lg backdrop-blur-sm">
-            <div className="text-xs opacity-80">Live View</div>
-            <div className="text-sm font-semibold">Confidence: 94.2%</div>
+            <div className="text-xs opacity-80">{apiData ? "Processed Image" : "Live View"}</div>
+            <div className="text-sm font-semibold">
+              {apiData?.defects?.[0]?.confidence || "Confidence: 94.2%"}
+            </div>
           </div>
         </div>
 
