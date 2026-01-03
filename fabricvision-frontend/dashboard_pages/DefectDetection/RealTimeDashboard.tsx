@@ -9,6 +9,7 @@ import DefectDetail from "@/components/DefectDetect/DefectDetail";
 import DetectionHistoryMonitor from "@/components/DefectDetect/DetectionHistoryMonitor";
 import EncoderPulseMonitor from "@/components/DefectDetect/EncoderPulseMonitor";
 
+
 const RealTimeDashboard: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [systemStatus, setSystemStatus] = useState({
