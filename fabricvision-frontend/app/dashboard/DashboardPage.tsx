@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Swal, { SweetAlertOptions } from "sweetalert2";
+import Image from "next/image";
+import logoImage from "@/assets/Logo.png";
 
 import {
   Activity,
@@ -330,12 +332,27 @@ const DashboardPage = () => {
         className={`py-4 px-6 shadow-sm backdrop-blur-sm bg-white/70 border-b border-gray-100 relative z-[100] ${inter.className}`}
       >
         <div className="flex items-center justify-between sm:ml-4">
-          {/* Logo */}
           <motion.div
             className="flex items-center space-x-3"
             whileHover={{ scale: 1.02 }}
             transition={{ type: "spring", stiffness: 400, damping: 10 }}
           >
+            {/* Logo Image */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.1 }}
+            >
+              <Image
+                src={logoImage}
+                alt="FABRIC Vision Logo"
+                width={42} // Adjust size as needed
+                height={42}
+                className="rounded-lg border border-black" // Optional styling
+              />
+            </motion.div>
+
+            {/* Title */}
             <motion.h1
               className="text-2xl font-bold tracking-tight bg-black bg-clip-text text-transparent"
               initial={{ opacity: 0, x: -10 }}
