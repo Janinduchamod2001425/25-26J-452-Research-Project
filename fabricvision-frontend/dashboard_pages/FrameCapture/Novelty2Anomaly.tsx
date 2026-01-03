@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import { motion, Variants, AnimatePresence } from "framer-motion";
+import { toast } from "react-toastify";
 
 import {
   Chart as ChartJS,
@@ -259,6 +260,12 @@ const Novelty2Anomaly: React.FC = () => {
   const [totalFrames, setTotalFrames] = useState(0);
   const [fisForwardedFrames, setFisForwardedFrames] = useState(0);
 
+  const [frameSummary, setFrameSummary] = useState({
+    normal: 0,
+    warning: 0,
+    anomalous: 0,
+  });
+
   // 2-second loading spinner
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -401,6 +408,49 @@ const Novelty2Anomaly: React.FC = () => {
     if (status !== "NORMAL") {
       setFisForwardedFrames((prev) => prev + 1);
     }
+
+    if (status === "WARNING") {
+      toast.warning(
+        <div>
+          <strong>⚠️ Warning</strong>
+          <div>Frame {Date.now()} flagged as borderline</div>
+          <small>FIS Score: {fis.toFixed(2)}</small>
+        </div>,
+        {
+          autoClose: 4000,
+          position: "top-right",
+          style: {
+            background: "#ff9800",
+            color: "#fff",
+          },
+        },
+      );
+    }
+
+    if (status === "ANOMALOUS") {
+      toast.error(
+        <div>
+          <strong>🚨 Anomaly Detected</strong>
+          <div>Frame {Date.now()} has been forwarded</div>
+          <small>Immediate attention required</small>
+        </div>,
+        {
+          autoClose: 4000,
+          position: "top-right",
+          style: {
+            background: "#f44336",
+            color: "#fff",
+          },
+        },
+      );
+    }
+
+    setFrameSummary((prev) => ({
+      ...prev,
+      normal: prev.normal + (status === "NORMAL" ? 1 : 0),
+      warning: prev.warning + (status === "WARNING" ? 1 : 0),
+      anomalous: prev.anomalous + (status === "ANOMALOUS" ? 1 : 0),
+    }));
   };
 
   if (loading) {
@@ -686,7 +736,7 @@ const Novelty2Anomaly: React.FC = () => {
         </div>
 
         {/* ROW 3 – VIM / FIS / Reduction cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {/* VIM metrics */}
           <Card>
             <h3 className="text-lg font-semibold text-gray-800 mb-3">
@@ -739,6 +789,34 @@ const Novelty2Anomaly: React.FC = () => {
             </p>
           </Card>
 
+          <Card>
+            <h3 className="text-lg font-semibold text-gray-800 mb-3">
+              Frame Classification Summary
+            </h3>
+
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-emerald-700">Normal frames</span>
+                <span className="font-semibold">{frameSummary.normal}</span>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="text-amber-700">Borderline frames</span>
+                <span className="font-semibold">{frameSummary.warning}</span>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="text-red-700">Irregular frames</span>
+                <span className="font-semibold">{frameSummary.anomalous}</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-500 mt-3">
+              Only borderline and irregular frames are forwarded to the next
+              quality-intelligence stage (Novelty 3).
+            </p>
+          </Card>
+
           {/* Data reduction */}
           <Card>
             <h3 className="text-lg font-semibold text-gray-800 mb-3">
@@ -773,9 +851,9 @@ const Novelty2Anomaly: React.FC = () => {
             <h3 className="text-lg font-semibold text-gray-800">
               Anomaly Events Log
             </h3>
-            <div className="flex items-center space-x-2 text-xs text-gray-500">
-              <span className="inline-flex items-center px-3 py-2 rounded-full bg-gray-100 outline">
-                <span className="w-2 h-2 rounded-full bg-red-500 mr-1.5 animate-pulse font-bold" />
+            <div className="flex items-center space-x-2 text-xs text-red-700">
+              <span className="inline-flex items-center px-3 py-2 rounded-full bg-red-50 outline">
+                <span className="w-2 h-2 rounded-full bg-red-500 mr-1.5 -mt-0.5 animate-pulse font-bold" />
                 LIVE
               </span>
             </div>
