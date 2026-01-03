@@ -19,7 +19,7 @@ router = APIRouter(prefix="/fogcomputing", tags=["Fog Computing"])
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 
 DEFAULT_MODEL_PATH = os.path.join(
-    BASE_DIR, "models", "fogcomputing", "mobilenetv2_fabric_classifierV1.h5"
+    BASE_DIR, "models", "fogcomputing", "mobilenetv2_fabric_classifier_finetuned.h5"
 )
 DEFAULT_MAPPING_PATH = os.path.join(
     BASE_DIR, "models", "fogcomputing", "class_mapping.json"
