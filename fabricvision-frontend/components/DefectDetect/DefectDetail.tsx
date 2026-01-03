@@ -1,12 +1,31 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { defectData } from "@/data/defectData";
-import { FiCheckCircle, FiAlertTriangle, FiMapPin, FiBarChart2, FiTarget, FiNavigation } from "react-icons/fi";
+import { FiCheckCircle, FiAlertTriangle, FiMapPin, FiBarChart2, FiTarget, FiNavigation, FiActivity } from "react-icons/fi";
 
-const DefectDetail = () => {
+interface DefectDetailProps {
+  apiData?: any;
+}
+
+const DefectDetail: React.FC<DefectDetailProps> = ({ apiData }) => {
   const { defectDetail } = defectData;
+  const [currentDefect, setCurrentDefect] = useState(defectDetail);
+
+  useEffect(() => {
+    if (apiData?.defects?.[0]) {
+      const defect = apiData.defects[0];
+      setCurrentDefect({
+        type: defect.type,
+        severity: defect.severity,
+        confidence: defect.confidence,
+        location: defect.location
+      });
+    } else {
+      setCurrentDefect(defectDetail);
+    }
+  }, [apiData, defectDetail]);
 
   const getSeverityColor = (severity: string) => {
-    switch(severity.toLowerCase()) {
+    switch(severity?.toLowerCase()) {
       case 'low': return 'text-green-600 bg-green-100';
       case 'medium': return 'text-yellow-600 bg-yellow-100';
       case 'high': return 'text-red-600 bg-red-100';
@@ -15,7 +34,8 @@ const DefectDetail = () => {
   };
 
   const getConfidenceColor = (confidence: string) => {
-    const percent = parseInt(confidence);
+    if (!confidence) return 'text-gray-600';
+    const percent = parseFloat(confidence);
     if (percent >= 90) return 'text-green-600';
     if (percent >= 80) return 'text-yellow-600';
     return 'text-red-600';
@@ -25,11 +45,11 @@ const DefectDetail = () => {
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-          <FiCheckCircle className="w-5 h-5 text-green-600" />
+          {apiData ? <FiActivity className="w-5 h-5 text-blue-600" /> : <FiCheckCircle className="w-5 h-5 text-green-600" />}
           Defect Analysis Details
         </h2>
-        <span className="px-3 py-1 bg-green-100 text-green-800 text-sm rounded-full font-medium">
-          Verified
+        <span className={`px-3 py-1 ${apiData ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'} text-sm rounded-full font-medium`}>
+          {apiData ? "Detected" : "Verified"}
         </span>
       </div>
 
@@ -39,7 +59,7 @@ const DefectDetail = () => {
             <FiAlertTriangle className="w-4 h-4 text-blue-600" />
             <span className="text-sm text-gray-600">Defect Type</span>
           </div>
-          <div className="text-lg font-bold text-gray-900">{defectDetail.type}</div>
+          <div className="text-lg font-bold text-gray-900">{currentDefect.type || "N/A"}</div>
         </div>
 
         <div className="bg-gray-50 p-4 rounded-lg">
@@ -47,8 +67,8 @@ const DefectDetail = () => {
             <FiBarChart2 className="w-4 h-4 text-amber-600" />
             <span className="text-sm text-gray-600">Severity</span>
           </div>
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${getSeverityColor(defectDetail.severity)}`}>
-            {defectDetail.severity}
+          <span className={`px-3 py-1 rounded-full text-sm font-medium ${getSeverityColor(currentDefect.severity)}`}>
+            {currentDefect.severity || "N/A"}
           </span>
         </div>
 
@@ -57,8 +77,8 @@ const DefectDetail = () => {
             <FiTarget className="w-4 h-4 text-purple-600" />
             <span className="text-sm text-gray-600">Confidence</span>
           </div>
-          <div className={`text-lg font-bold ${getConfidenceColor(defectDetail.confidence)}`}>
-            {defectDetail.confidence}
+          <div className={`text-lg font-bold ${getConfidenceColor(currentDefect.confidence)}`}>
+            {currentDefect.confidence || "N/A"}
           </div>
         </div>
 
@@ -67,7 +87,9 @@ const DefectDetail = () => {
             <FiNavigation className="w-4 h-4 text-green-600" />
             <span className="text-sm text-gray-600">Defect ID</span>
           </div>
-          <div className="text-sm font-mono text-gray-900">#FD-2024-0876</div>
+          <div className="text-sm font-mono text-gray-900">
+            {apiData ? `#FD-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}` : "#FD-2024-0876"}
+          </div>
         </div>
       </div>
 
@@ -80,15 +102,21 @@ const DefectDetail = () => {
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
           <div>
             <div className="text-sm text-gray-600 mb-1">Fabric Length</div>
-            <div className="font-bold text-gray-900">{defectDetail.location.fabricLength}</div>
+            <div className="font-bold text-gray-900">
+              {currentDefect.location?.fabricLength || "N/A"}
+            </div>
           </div>
           <div>
             <div className="text-sm text-gray-600 mb-1">X Position</div>
-            <div className="font-bold text-gray-900">{defectDetail.location.xPos}</div>
+            <div className="font-bold text-gray-900">
+              {currentDefect.location?.xPos || "N/A"}
+            </div>
           </div>
           <div>
             <div className="text-sm text-gray-600 mb-1">Y Position</div>
-            <div className="font-bold text-gray-900">{defectDetail.location.yPos}</div>
+            <div className="font-bold text-gray-900">
+              {currentDefect.location?.yPos || "N/A"}
+            </div>
           </div>
         </div>
 
@@ -101,9 +129,31 @@ const DefectDetail = () => {
         </div>
       </div>
 
+      {apiData?.summary && (
+        <div className="mt-6 bg-gradient-to-r from-gray-50 to-slate-50 p-5 rounded-xl border border-gray-200">
+          <h3 className="font-semibold text-gray-900 mb-3">Detection Summary</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <div className="text-sm text-gray-600 mb-1">Total Defects</div>
+              <div className="text-lg font-bold text-gray-900">{apiData.summary.total_defects}</div>
+            </div>
+            <div>
+              <div className="text-sm text-gray-600 mb-1">Overall Severity</div>
+              <div className="text-lg font-bold text-gray-900">{apiData.summary.overall_severity}</div>
+            </div>
+            <div className="col-span-2">
+              <div className="text-sm text-gray-600 mb-1">Defect Free</div>
+              <div className={`text-lg font-bold ${apiData.summary.is_defect_free ? 'text-green-600' : 'text-red-600'}`}>
+                {apiData.summary.is_defect_free ? "Yes" : "No"}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center gap-4 mt-6 pt-6 border-t border-gray-100">
         <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
-          Generate Report
+          {apiData ? "Save Report" : "Generate Report"}
         </button>
         <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium">
           Export Data
