@@ -4,6 +4,15 @@ import React from "react";
 import Card from "./Card";
 import { CheckCircle, AlertTriangle, XCircle } from "lucide-react";
 
+interface Props {
+  quality: {
+    frame_quality: string;
+    risk_level: string;
+    action: string;
+    confidence_reason: string[];
+  } | null;
+}
+
 const qualityStats = {
   total: 1240,
   ready: 892,
@@ -24,7 +33,7 @@ const sampleFrames = [
   { id: "#F-1048", issue: "Underexposed" },
 ];
 
-const FrameQualitySummary: React.FC = () => {
+const FrameQualitySummary: React.FC<Props> = ({ quality }) => {
   return (
     <Card>
       <h3 className="text-lg md:text-xl font-semibold text-gray-900 mb-2">
