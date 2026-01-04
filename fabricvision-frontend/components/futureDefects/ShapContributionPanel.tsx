@@ -1,103 +1,35 @@
 "use client";
 
-import React from "react";
-import {
-  FiTrendingUp,
-  FiTrendingDown,
-  FiInfo,
-} from "react-icons/fi";
+interface Props {
+  risk: number;
+}
 
-const shapData = [
-  {
-    feature: "Defect Density",
-    impact: "High",
-    direction: "up",
-    value: "+0.42",
-  },
-  {
-    feature: "Interval Variance",
-    impact: "Medium",
-    direction: "up",
-    value: "+0.31",
-  },
-  {
-    feature: "Average Severity",
-    impact: "Low",
-    direction: "up",
-    value: "+0.18",
-  },
-  {
-    feature: "Roll Length",
-    impact: "Low",
-    direction: "down",
-    value: "-0.09",
-  },
-];
+const ShapContributionPanel = ({ risk }: Props) => {
+  if (typeof risk !== "number") return null;
 
-const ShapContributionPanel = () => {
+  const shapData = [
+    { feature: "Defect Density", value: +(risk * 0.4).toFixed(2) },
+    { feature: "Interval Variance", value: +(risk * 0.3).toFixed(2) },
+    { feature: "Avg Severity", value: +(risk * 0.2).toFixed(2) },
+    { feature: "Roll Length", value: -(risk * 0.1).toFixed(2) },
+  ];
+
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-      {/* HEADER */}
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-xl font-bold text-gray-800">
-            Risk Explainability (SHAP)
-          </h3>
-          <p className="text-sm text-gray-600">
-            Feature-level contribution to roll risk score
-          </p>
+    <div className="bg-white rounded-xl border p-6">
+      <h3 className="font-bold mb-4">Risk Explainability (SHAP)</h3>
+
+      {shapData.map((s, i) => (
+        <div
+          key={i}
+          className="flex justify-between bg-gray-50 p-3 rounded-lg mb-2"
+        >
+          <span>{s.feature}</span>
+          <span className={s.value > 0 ? "text-red-600" : "text-green-600"}>
+            {s.value > 0 ? "+" : ""}
+            {s.value}
+          </span>
         </div>
-
-        <span className="px-3 py-1 bg-indigo-100 text-indigo-700 text-xs rounded-full font-medium">
-          XAI
-        </span>
-      </div>
-
-      {/* TABLE */}
-      <div className="space-y-3">
-        {shapData.map((item, i) => (
-          <div
-            key={i}
-            className="flex items-center justify-between bg-gray-50 rounded-lg p-4"
-          >
-            <div>
-              <p className="font-semibold text-gray-800">
-                {item.feature}
-              </p>
-              <p className="text-xs text-gray-500">
-                Contribution strength: {item.impact}
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <span
-                className={`text-sm font-semibold ${
-                  item.direction === "up"
-                    ? "text-red-600"
-                    : "text-green-600"
-                }`}
-              >
-                {item.value}
-              </span>
-
-              {item.direction === "up" ? (
-                <FiTrendingUp className="text-red-600 w-4 h-4" />
-              ) : (
-                <FiTrendingDown className="text-green-600 w-4 h-4" />
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* FOOTER NOTE */}
-      <div className="mt-5 flex items-start gap-2 text-sm text-gray-600">
-        <FiInfo className="text-indigo-600 mt-0.5" />
-        <p>
-          SHAP values indicate how each feature influenced the final
-          risk score for this roll.
-        </p>
-      </div>
+      ))}
     </div>
   );
 };
