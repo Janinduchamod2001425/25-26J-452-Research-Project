@@ -724,7 +724,7 @@ const QualityAnalyticsTab = () => {
       <MotionCard
         icon={<FiLayers />}
         title="Before vs After Enhancement"
-        subtitle="Real output images returned from the enhancement endpoint."
+        // subtitle="Real output images returned from the enhancement endpoint."
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="relative w-full h-64 rounded-lg overflow-hidden border bg-gray-50">
@@ -894,7 +894,7 @@ const QualityAnalyticsTab = () => {
         <MotionCard
           icon={<FiBarChart2 />}
           title="Quality vs Defect Risk"
-          subtitle="Simple demo: risk = 100 - quality (panel-friendly)."
+          // subtitle="Simple demo: risk = 100 - quality."
         >
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
