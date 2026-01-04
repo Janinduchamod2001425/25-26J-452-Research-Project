@@ -469,7 +469,7 @@ const EnhancementOverviewDashboard: React.FC = () => {
               />
             </div>
 
-            <div className="mt-4 p-3 rounded-lg bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200">
+            {/* <div className="mt-4 p-3 rounded-lg bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200">
               <div className="flex items-start gap-2">
                 <div className="p-1.5 bg-amber-100 rounded-md">
                   <span className="text-amber-600 text-sm font-bold">!</span>
@@ -483,7 +483,7 @@ const EnhancementOverviewDashboard: React.FC = () => {
                   </p>
                 </div>
               </div>
-            </div>
+            </div> */}
           </Card>
 
           {/* Performance Metrics */}
