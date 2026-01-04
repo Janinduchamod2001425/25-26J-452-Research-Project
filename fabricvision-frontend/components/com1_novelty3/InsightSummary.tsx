@@ -18,8 +18,9 @@ const InsightSummary: React.FC = () => {
         setup. Motion spikes were concentrated in the{" "}
         <span className="font-semibold">right warp tension zone</span>, which
         triggered short bursts of high FPS and ensured that all high-risk
-        segments were forwarded to the anomaly pre-screen (Novelty 2) and defect
-        detection pipeline (Component 3).
+        segments were correctly tagged with motion and quality metadata,
+        allowing the fog computing layer to apply targeted enhancement before
+        frames entered the defect detection pipeline.
       </p>
       <p className="mt-2 text-xs md:text-sm text-gray-600 leading-relaxed">
         By combining <span className="font-semibold">motion variance</span>,
