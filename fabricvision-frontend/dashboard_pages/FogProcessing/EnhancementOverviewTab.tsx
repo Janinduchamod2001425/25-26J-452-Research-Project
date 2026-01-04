@@ -292,7 +292,7 @@ const EnhancementOverviewDashboard: React.FC = () => {
     { time: "14:52", profile: "Patterned", status: "Warning", confidence: 72 },
     { time: "14:53", profile: "Light", status: "Stable", confidence: 91 },
     { time: "14:54", profile: "Dark", status: "Stable", confidence: 89 },
-    { time: "14:55", profile: "Textured", status: "Stable", confidence: 85 },
+    { time: "14:55", profile: "Dark", status: "Stable", confidence: 85 },
     { time: "14:56", profile: "Patterned", status: "Warning", confidence: 68 },
   ];
 
