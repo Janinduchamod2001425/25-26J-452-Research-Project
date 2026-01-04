@@ -20,6 +20,12 @@ from fabapi.services.fogcomputing.router import router as fog_router
 # ===============================
 from fabapi.services.fabricdetection.detector import FabricDefectDetector
 
+# Component 4 services
+# ===============================
+
+from fabapi.services.futurepredict.router import router as modelA_router
+from fabapi.services.modelb.router import router as modelB_router
+
 # ===============================
 # ENVIRONMENT SETUP
 # ===============================
@@ -191,6 +197,12 @@ app.include_router(quality_router)
 # ===============================
 app.include_router(fog_router)
 
+# ===============================
+# defects prediction Routers (Duvidu)
+# ===============================
+
+app.include_router(modelA_router)
+app.include_router(modelB_router)
 
 # ===============================
 # ERROR HANDLER (EXISTING)
