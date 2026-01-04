@@ -375,10 +375,10 @@ const QualityAnalyticsTab = () => {
     return (
       <div className="bg-white p-8 rounded-xl border text-center text-gray-600">
         Upload and run <b>Classification</b> first.
-        <div className="text-sm text-gray-500 mt-2">
+        {/* <div className="text-sm text-gray-500 mt-2">
           This tab will automatically show real metrics for the same image (no
           second upload).
-        </div>
+        </div> */}
       </div>
     );
   }
@@ -398,7 +398,7 @@ const QualityAnalyticsTab = () => {
   // SAFE delta % (avoid your crash)
   const deltaQuality = metrics?.delta?.quality ?? 0;
   const deltaSharpness = metrics?.delta?.sharpness ?? 0;
-  const deltaNoise = metrics?.delta?.contrast ?? 0; // if you interpret contrast drop as "noise reduction" (simple proxy)
+  const deltaNoise = metrics?.delta?.contrast ?? 0;
 
   return (
     <div className="space-y-6">

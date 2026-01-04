@@ -9,10 +9,10 @@ import type { IconType } from "react-icons";
 import { FiImage, FiSliders, FiBarChart2 } from "react-icons/fi";
 import { FogProvider } from "./FogProcessing/FogContext";
 
-type Tab = "classification" | "overview" | "analytics";
+type Tab = "classification" | "analytics" | "overview";
 
 export default function FogComputingModule() {
-  const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [activeTab, setActiveTab] = useState<Tab>("classification");
   const [tab, setTab] = useState<"classify" | "quality">("classify");
 
   return (
@@ -31,24 +31,24 @@ export default function FogComputingModule() {
               onClick={() => setActiveTab("classification")}
             />
             <TabButton
-              label="Enhancement Overview"
-              icon={FiSliders}
-              active={activeTab === "overview"}
-              onClick={() => setActiveTab("overview")}
-            />
-            <TabButton
               label="Quality Analytics"
               icon={FiBarChart2}
               active={activeTab === "analytics"}
               onClick={() => setActiveTab("analytics")}
+            />
+            <TabButton
+              label="Enhancement Overview"
+              icon={FiSliders}
+              active={activeTab === "overview"}
+              onClick={() => setActiveTab("overview")}
             />
           </div>
 
           {/* Tab Content */}
           <div className="pt-4 bold">
             {activeTab === "classification" && <ImageClassificationTab />}
-            {activeTab === "overview" && <EnhancementOverviewTab />}
             {activeTab === "analytics" && <QualityAnalyticsTab />}
+            {activeTab === "overview" && <EnhancementOverviewTab />}
           </div>
         </div>
       </main>
