@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
-import bgImage from "@/assets/SplashScreenBG1.png";
+import bgImage from "@/assets/SplashScreenBG2.png";
 
 function LoadingMessages() {
   const [currentMessage, setCurrentMessage] = useState(0);
