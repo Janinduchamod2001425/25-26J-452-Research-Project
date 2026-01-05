@@ -741,7 +741,7 @@ const Novelty2Anomaly: React.FC = () => {
       toast.error(
         <div>
           <strong>🚨 Anomaly Detected</strong>
-          <div>Frame has been forwarded to fog layer</div>
+          <div>Frame flagged as irregular</div>
           <small>Immediate attention required</small>
         </div>,
         {
