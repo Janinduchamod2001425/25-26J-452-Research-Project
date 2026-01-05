@@ -42,6 +42,21 @@ interface AnomalyPoint {
   score: number; // 0–1
 }
 
+interface FrameData {
+  id: number;
+  timestamp: number;
+  imageUrl: string;
+  fis: number;
+  status: AnomalyStatus;
+  threshold: number | null;
+  vimBase64: string | null;
+  reconBase64: string | null;
+  vimMean: number;
+  vimVar: number;
+  vimStability: number;
+  regions: Array<{ region: string; error: number }>;
+}
+
 interface CardProps {
   children: React.ReactNode;
   className?: string;
@@ -236,35 +251,235 @@ const anomalyTrendOptions: ChartOptions<"line"> = {
 // -------------------- Component --------------------
 const Novelty2Anomaly: React.FC = () => {
   const [loading, setLoading] = useState(true);
+  const [currentFrameIndex, setCurrentFrameIndex] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("novelty2_currentFrameIndex");
+      return saved ? parseInt(saved) : 0;
+    }
+    return 0;
+  });
+  const [storedFrames, setStoredFrames] = useState<FrameData[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("novelty2_storedFrames");
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
 
-  // 🔹 Dynamic states (from backend)
-  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
-  const [fisValue, setFisValue] = useState(0);
-  const [currentStatus, setCurrentStatus] = useState<AnomalyStatus>("NORMAL");
-  const [vimBase64, setVimBase64] = useState<string | null>(null);
-  const [reconBase64, setReconBase64] = useState<string | null>(null);
-  const [threshold, setThreshold] = useState<number | null>(null);
+  // 🔹 Current frame data (from storedFrames or defaults)
+  const currentFrame = storedFrames[currentFrameIndex] || null;
 
-  const [trendSeries, setTrendSeries] = useState<AnomalyPoint[]>([]);
-  const [logs, setLogs] = useState<LogItem[]>([]);
+  // 🔹 Dynamic states (from backend) - Initialize from localStorage
+  const [fisValue, setFisValue] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("novelty2_fisValue");
+      return saved ? parseFloat(saved) : 0;
+    }
+    return 0;
+  });
+
+  const [currentStatus, setCurrentStatus] = useState<AnomalyStatus>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("novelty2_currentStatus");
+      return (saved as AnomalyStatus) || "NORMAL";
+    }
+    return "NORMAL";
+  });
+
+  const [threshold, setThreshold] = useState<number | null>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("novelty2_threshold");
+      return saved ? parseFloat(saved) : null;
+    }
+    return null;
+  });
+
+  const [trendSeries, setTrendSeries] = useState<AnomalyPoint[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("novelty2_trendSeries");
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
+
+  const [logs, setLogs] = useState<LogItem[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("novelty2_logs");
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
 
   const statusStyles = statusConfig[currentStatus];
-  const [hasUploaded, setHasUploaded] = useState(false);
+  const [hasUploaded, setHasUploaded] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("novelty2_hasUploaded");
+      return saved === "true";
+    }
+    return false;
+  });
 
   // ---- VIM metrics (dynamic) ----
-  const [vimMean, setVimMean] = useState(0);
-  const [vimVar, setVimVar] = useState(0);
-  const [vimStability, setVimStability] = useState(0);
+  const [vimMean, setVimMean] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("novelty2_vimMean");
+      return saved ? parseFloat(saved) : 0;
+    }
+    return 0;
+  });
+
+  const [vimVar, setVimVar] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("novelty2_vimVar");
+      return saved ? parseFloat(saved) : 0;
+    }
+    return 0;
+  });
+
+  const [vimStability, setVimStability] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("novelty2_vimStability");
+      return saved ? parseFloat(saved) : 0;
+    }
+    return 0;
+  });
 
   // ---- FIS routing & reduction (session-based) ----
-  const [totalFrames, setTotalFrames] = useState(0);
-  const [fisForwardedFrames, setFisForwardedFrames] = useState(0);
-
-  const [frameSummary, setFrameSummary] = useState({
-    normal: 0,
-    warning: 0,
-    anomalous: 0,
+  const [totalFrames, setTotalFrames] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("novelty2_totalFrames");
+      return saved ? parseInt(saved) : 0;
+    }
+    return 0;
   });
+
+  const [fisForwardedFrames, setFisForwardedFrames] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("novelty2_fisForwardedFrames");
+      return saved ? parseInt(saved) : 0;
+    }
+    return 0;
+  });
+
+  const [frameSummary, setFrameSummary] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("novelty2_frameSummary");
+      return saved
+        ? JSON.parse(saved)
+        : { normal: 0, warning: 0, anomalous: 0 };
+    }
+    return { normal: 0, warning: 0, anomalous: 0 };
+  });
+
+  // Save state to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        "novelty2_currentFrameIndex",
+        currentFrameIndex.toString(),
+      );
+    }
+  }, [currentFrameIndex]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        "novelty2_storedFrames",
+        JSON.stringify(storedFrames),
+      );
+    }
+  }, [storedFrames]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("novelty2_fisValue", fisValue.toString());
+    }
+  }, [fisValue]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("novelty2_currentStatus", currentStatus);
+    }
+  }, [currentStatus]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("novelty2_threshold", threshold?.toString() || "");
+    }
+  }, [threshold]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("novelty2_trendSeries", JSON.stringify(trendSeries));
+    }
+  }, [trendSeries]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("novelty2_logs", JSON.stringify(logs));
+    }
+  }, [logs]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("novelty2_hasUploaded", hasUploaded.toString());
+    }
+  }, [hasUploaded]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("novelty2_vimMean", vimMean.toString());
+    }
+  }, [vimMean]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("novelty2_vimVar", vimVar.toString());
+    }
+  }, [vimVar]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("novelty2_vimStability", vimStability.toString());
+    }
+  }, [vimStability]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("novelty2_totalFrames", totalFrames.toString());
+    }
+  }, [totalFrames]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        "novelty2_fisForwardedFrames",
+        fisForwardedFrames.toString(),
+      );
+    }
+  }, [fisForwardedFrames]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        "novelty2_frameSummary",
+        JSON.stringify(frameSummary),
+      );
+    }
+  }, [frameSummary]);
+
+  // Load current frame data when index changes
+  useEffect(() => {
+    if (currentFrame) {
+      setFisValue(currentFrame.fis);
+      setCurrentStatus(currentFrame.status);
+      setThreshold(currentFrame.threshold);
+      setVimMean(currentFrame.vimMean);
+      setVimVar(currentFrame.vimVar);
+      setVimStability(currentFrame.vimStability);
+      setHasUploaded(true);
+    }
+  }, [currentFrame]);
 
   // 2-second loading spinner
   useEffect(() => {
@@ -279,7 +494,7 @@ const Novelty2Anomaly: React.FC = () => {
   const reductionPercent =
     totalFrames > 0 ? (fisFilteredFrames / totalFrames) * 100 : 0;
 
-  const anomalyTrendData: ChartData<"line"> = {
+  const dynamicAnomalyTrendData: ChartData<"line"> = {
     labels: trendSeries.map((p) => p.frame.toString()),
     datasets: [
       {
@@ -307,13 +522,13 @@ const Novelty2Anomaly: React.FC = () => {
     ],
   };
 
-  const anomalyTrendOptions: ChartOptions<"line"> = {
+  const dynamicAnomalyTrendOptions: ChartOptions<"line"> = {
     responsive: true,
     plugins: { legend: { display: false } },
     scales: { y: { min: 0, max: 1 } },
   };
 
-  const dynamicRegions = [
+  const dynamicRegions = currentFrame?.regions || [
     { region: "Top-Left", error: fisValue * (0.8 + Math.random() * 0.4) },
     { region: "Top-Right", error: fisValue * (0.8 + Math.random() * 0.4) },
     { region: "Center", error: fisValue * (0.8 + Math.random() * 0.4) },
@@ -321,9 +536,66 @@ const Novelty2Anomaly: React.FC = () => {
     { region: "Bottom-Right", error: fisValue * (0.8 + Math.random() * 0.4) },
   ];
 
-  const highestDynamicRegion = hasUploaded
-    ? dynamicRegions.reduce((a, b) => (a.error > b.error ? a : b))
-    : null;
+  const highestDynamicRegion =
+    hasUploaded && dynamicRegions.length > 0
+      ? dynamicRegions.reduce((a, b) => (a.error > b.error ? a : b))
+      : null;
+
+  // Function to clear all stored data
+  const clearAllData = () => {
+    // Clear localStorage
+    if (typeof window !== "undefined") {
+      const keys = [
+        "novelty2_currentFrameIndex",
+        "novelty2_storedFrames",
+        "novelty2_fisValue",
+        "novelty2_currentStatus",
+        "novelty2_threshold",
+        "novelty2_trendSeries",
+        "novelty2_logs",
+        "novelty2_hasUploaded",
+        "novelty2_vimMean",
+        "novelty2_vimVar",
+        "novelty2_vimStability",
+        "novelty2_totalFrames",
+        "novelty2_fisForwardedFrames",
+        "novelty2_frameSummary",
+      ];
+
+      keys.forEach((key) => localStorage.removeItem(key));
+    }
+
+    // Reset all state to defaults
+    setCurrentFrameIndex(0);
+    setStoredFrames([]);
+    setFisValue(0);
+    setCurrentStatus("NORMAL");
+    setThreshold(null);
+    setTrendSeries([]);
+    setLogs([]);
+    setHasUploaded(false);
+    setVimMean(0);
+    setVimVar(0);
+    setVimStability(0);
+    setTotalFrames(0);
+    setFisForwardedFrames(0);
+    setFrameSummary({ normal: 0, warning: 0, anomalous: 0 });
+
+    toast.info("All data has been cleared");
+  };
+
+  // Navigation functions
+  const goToPreviousFrame = () => {
+    if (currentFrameIndex > 0) {
+      setCurrentFrameIndex((prev: number) => prev - 1);
+    }
+  };
+
+  const goToNextFrame = () => {
+    if (currentFrameIndex < storedFrames.length - 1) {
+      setCurrentFrameIndex((prev: number) => prev + 1);
+    }
+  };
 
   const analyzeFrame = async (file: File) => {
     const formData = new FormData();
@@ -336,29 +608,35 @@ const Novelty2Anomaly: React.FC = () => {
 
     const data = await res.json();
 
-    // ---- VIM metrics from region errors ----
+    // Extract VIM metrics from region errors
+    let vimMean = 0;
+    let vimVar = 0;
+    let vimStability = 0;
+    const regions: Array<{ region: string; error: number }> = [];
+
     if (data.region_analysis?.regions) {
       const values = Object.values(data.region_analysis.regions) as number[];
+      const regionNames = Object.keys(data.region_analysis.regions);
 
       if (values.length > 0) {
-        const mean = values.reduce((a, b) => a + b, 0) / values.length;
+        vimMean = values.reduce((a, b) => a + b, 0) / values.length;
+        vimVar =
+          values.reduce((a, b) => a + Math.pow(b - vimMean, 2), 0) /
+          values.length;
+        vimStability = 1 / (1 + vimVar);
 
-        const variance =
-          values.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / values.length;
-
-        // Simple stability index (panel-safe explanation)
-        const stability = 1 / (1 + variance);
-
-        setVimMean(mean);
-        setVimVar(variance);
-        setVimStability(stability);
+        // Store region errors
+        regionNames.forEach((region, index) => {
+          regions.push({
+            region,
+            error: values[index],
+          });
+        });
       }
     }
 
     const fis = data.frame_analysis.fis;
     const backendThreshold = data.frame_analysis.threshold;
-
-    setThreshold(backendThreshold);
 
     const status: AnomalyStatus =
       fis < backendThreshold
@@ -367,15 +645,46 @@ const Novelty2Anomaly: React.FC = () => {
           ? "WARNING"
           : "ANOMALOUS";
 
+    // Create new frame data
+    const newFrameData: FrameData = {
+      id: Date.now(),
+      timestamp: Date.now(),
+      imageUrl: URL.createObjectURL(file),
+      fis,
+      status,
+      threshold: backendThreshold,
+      vimBase64: data.visual_outputs?.vim_base64
+        ? `data:image/png;base64,${data.visual_outputs.vim_base64}`
+        : null,
+      reconBase64: data.visual_outputs?.reconstruction_base64
+        ? `data:image/jpeg;base64,${data.visual_outputs.reconstruction_base64}`
+        : null,
+      vimMean,
+      vimVar,
+      vimStability,
+      regions,
+    };
+
+    // Add to stored frames and set as current
+    setStoredFrames((prev: FrameData[]) => [...prev, newFrameData]);
+    setCurrentFrameIndex(storedFrames.length); // Navigate to the new frame
+
+    // Update current display values
     setFisValue(fis);
     setCurrentStatus(status);
+    setThreshold(backendThreshold);
+    setVimMean(vimMean);
+    setVimVar(vimVar);
+    setVimStability(vimStability);
 
-    setTrendSeries((prev) => [
+    // Update trend series
+    setTrendSeries((prev: AnomalyPoint[]) => [
       ...prev.slice(-7),
       { frame: Date.now(), score: fis },
     ]);
 
-    setLogs((prev) => [
+    // Update logs
+    setLogs((prev: LogItem[]) => [
       {
         time: new Date().toLocaleTimeString(),
         frame: Date.now(),
@@ -387,33 +696,34 @@ const Novelty2Anomaly: React.FC = () => {
               ? "warning"
               : "info",
       },
-      ...prev,
+      ...prev.slice(0, 49), // Keep only last 50 logs
     ]);
-
-    if (data.visual_outputs?.vim_base64) {
-      setVimBase64(`data:image/png;base64,${data.visual_outputs.vim_base64}`);
-    }
-
-    if (data.visual_outputs?.reconstruction_base64) {
-      setReconBase64(
-        `data:image/jpeg;base64,${data.visual_outputs.reconstruction_base64}`,
-      );
-    }
 
     setHasUploaded(true);
 
     // ---- Session frame counters ----
-    setTotalFrames((prev) => prev + 1);
+    setTotalFrames((prev: number) => prev + 1);
 
     if (status !== "NORMAL") {
-      setFisForwardedFrames((prev) => prev + 1);
+      setFisForwardedFrames((prev: number) => prev + 1);
     }
 
+    // Update frame summary
+    setFrameSummary(
+      (prev: { normal: number; warning: number; anomalous: number }) => ({
+        ...prev,
+        normal: prev.normal + (status === "NORMAL" ? 1 : 0),
+        warning: prev.warning + (status === "WARNING" ? 1 : 0),
+        anomalous: prev.anomalous + (status === "ANOMALOUS" ? 1 : 0),
+      }),
+    );
+
+    // Show toast notifications
     if (status === "WARNING") {
       toast.warning(
         <div>
           <strong>⚠️ Warning</strong>
-          <div>Frame {Date.now()} flagged as borderline</div>
+          <div>Frame flagged as borderline</div>
           <small>FIS Score: {fis.toFixed(2)}</small>
         </div>,
         {
@@ -431,7 +741,7 @@ const Novelty2Anomaly: React.FC = () => {
       toast.error(
         <div>
           <strong>🚨 Anomaly Detected</strong>
-          <div>Frame {Date.now()} has been forwarded</div>
+          <div>Frame has been forwarded to fog layer</div>
           <small>Immediate attention required</small>
         </div>,
         {
@@ -444,13 +754,6 @@ const Novelty2Anomaly: React.FC = () => {
         },
       );
     }
-
-    setFrameSummary((prev) => ({
-      ...prev,
-      normal: prev.normal + (status === "NORMAL" ? 1 : 0),
-      warning: prev.warning + (status === "WARNING" ? 1 : 0),
-      anomalous: prev.anomalous + (status === "ANOMALOUS" ? 1 : 0),
-    }));
   };
 
   if (loading) {
@@ -477,6 +780,89 @@ const Novelty2Anomaly: React.FC = () => {
         transition={{ duration: 0.4 }}
         className="space-y-8"
       >
+        {/* Header with Clear Data and Frame Navigation */}
+        <div className="flex justify-between items-center">
+          <button
+            onClick={clearAllData}
+            className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium transition-colors border border-gray-300 flex items-center gap-2"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+              />
+            </svg>
+            Clear All Data
+          </button>
+
+          {/* Frame Navigation */}
+          <div className="flex items-center gap-3">
+            <div className="text-sm text-gray-700 font-medium">
+              Frame {currentFrameIndex + 1} of {storedFrames.length}
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={goToPreviousFrame}
+                disabled={currentFrameIndex === 0}
+                className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors ${
+                  currentFrameIndex === 0
+                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                    : "bg-gray-200 hover:bg-gray-300 text-gray-700"
+                }`}
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 19l-7-7 7-7"
+                  />
+                </svg>
+                Previous
+              </button>
+              <button
+                onClick={goToNextFrame}
+                disabled={currentFrameIndex >= storedFrames.length - 1}
+                className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors ${
+                  currentFrameIndex >= storedFrames.length - 1
+                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                    : "bg-gray-200 hover:bg-gray-300 text-gray-700"
+                }`}
+              >
+                Next
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* ROW 1 – MAIN VISUALIZATION (3 big cards) */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <Card>
@@ -487,7 +873,7 @@ const Novelty2Anomaly: React.FC = () => {
             {/* Image Preview */}
             <div className="relative w-full h-52 md:h-56 rounded-xl overflow-hidden border border-gray-200 bg-gray-100">
               <Image
-                src={uploadedImage ?? Live}
+                src={currentFrame?.imageUrl ?? Live}
                 alt="Original fabric frame"
                 fill
                 className="object-cover"
@@ -504,7 +890,6 @@ const Novelty2Anomaly: React.FC = () => {
                 onChange={(e) => {
                   if (!e.target.files?.[0]) return;
                   const file = e.target.files[0];
-                  setUploadedImage(URL.createObjectURL(file));
                   analyzeFrame(file);
                 }}
               />
@@ -528,7 +913,7 @@ const Novelty2Anomaly: React.FC = () => {
             </h3>
             <div className="relative w-full h-52 md:h-56 rounded-xl overflow-hidden border border-gray-200 bg-gray-100">
               <Image
-                src={reconBase64 ?? Live}
+                src={currentFrame?.reconBase64 ?? Live}
                 alt="Reconstructed fabric frame"
                 fill
                 className="object-cover opacity-95"
@@ -546,9 +931,9 @@ const Novelty2Anomaly: React.FC = () => {
               Visual Irregularity Map (VIM)
             </h3>
             <div className="relative w-full h-52 md:h-56 rounded-xl overflow-hidden border border-gray-200 bg-gray-900">
-              {vimBase64 ? (
+              {currentFrame?.vimBase64 ? (
                 <img
-                  src={vimBase64}
+                  src={currentFrame.vimBase64}
                   alt="VIM Heatmap"
                   className="w-full h-full object-cover"
                 />
@@ -611,14 +996,9 @@ const Novelty2Anomaly: React.FC = () => {
                 <div className="grid grid-cols-2 gap-4 text-sm text-gray-700">
                   <div>
                     <p className="text-gray-500 text-xs uppercase mb-1">
-                      Latest Frame
+                      Frame ID
                     </p>
-                    <p className="font-semibold">
-                      #
-                      {trendSeries.length > 0
-                        ? trendSeries[trendSeries.length - 1].frame
-                        : "--"}
-                    </p>
+                    <p className="font-semibold">#{currentFrame?.id || "—"}</p>
                   </div>
 
                   <div>
@@ -724,7 +1104,10 @@ const Novelty2Anomaly: React.FC = () => {
               Anomaly Trend Across Recent Frames
             </h3>
             <div className="w-full h-82 md:h-118">
-              <Line data={anomalyTrendData} options={anomalyTrendOptions} />
+              <Line
+                data={dynamicAnomalyTrendData}
+                options={dynamicAnomalyTrendOptions}
+              />
             </div>
             <div className="flex justify-between items-center mt-4 text-xs text-gray-500">
               <span>
@@ -779,7 +1162,10 @@ const Novelty2Anomaly: React.FC = () => {
               <div className="flex justify-between">
                 <span>Forwarding ratio</span>
                 <span className="font-semibold">
-                  {((fisForwardedFrames / totalFrames) * 100).toFixed(1)}%
+                  {totalFrames > 0
+                    ? ((fisForwardedFrames / totalFrames) * 100).toFixed(1)
+                    : "0.0"}
+                  %
                 </span>
               </div>
             </div>
@@ -860,33 +1246,39 @@ const Novelty2Anomaly: React.FC = () => {
           </div>
 
           <div className="max-h-64 overflow-y-auto pr-1">
-            {logs.map((log) => (
-              <div
-                key={`${log.time}-${log.frame}-${log.message}`}
-                className="flex items-start justify-between text-sm py-2 border-b border-gray-100 last:border-0"
-              >
-                <div className="flex items-start space-x-3">
-                  <div className="flex flex-col items-end text-xs text-gray-500 w-20">
-                    <span className="font-mono">{log.time}</span>
-                    <span className="font-mono text-[11px] text-gray-400">
-                      #{log.frame}
-                    </span>
-                  </div>
-                  <p className="text-gray-700">{log.message}</p>
-                </div>
-                <span
-                  className={`ml-4 text-[11px] font-semibold uppercase px-4 py-1.5 rounded-full ${
-                    log.level === "error"
-                      ? "bg-red-100 text-red-700 outline outline-red-700"
-                      : log.level === "warning"
-                        ? "bg-amber-100 text-amber-700 outline outline-orange-700"
-                        : "bg-gray-100 text-gray-600 outline outline-gray-700"
-                  }`}
-                >
-                  {log.level}
-                </span>
+            {logs.length === 0 ? (
+              <div className="text-center py-8 text-gray-500 text-sm">
+                No events logged yet. Upload a frame to start analysis.
               </div>
-            ))}
+            ) : (
+              logs.map((log, index) => (
+                <div
+                  key={`${log.time}-${log.frame}-${index}`}
+                  className="flex items-start justify-between text-sm py-2 border-b border-gray-100 last:border-0"
+                >
+                  <div className="flex items-start space-x-3">
+                    <div className="flex flex-col items-end text-xs text-gray-500 w-20">
+                      <span className="font-mono">{log.time}</span>
+                      <span className="font-mono text-[11px] text-gray-400">
+                        #{log.frame}
+                      </span>
+                    </div>
+                    <p className="text-gray-700">{log.message}</p>
+                  </div>
+                  <span
+                    className={`ml-4 text-[11px] font-semibold uppercase px-4 py-1.5 rounded-full ${
+                      log.level === "error"
+                        ? "bg-red-100 text-red-700 outline outline-red-700"
+                        : log.level === "warning"
+                          ? "bg-amber-100 text-amber-700 outline outline-orange-700"
+                          : "bg-gray-100 text-gray-600 outline outline-gray-700"
+                    }`}
+                  >
+                    {log.level}
+                  </span>
+                </div>
+              ))
+            )}
           </div>
         </Card>
       </motion.div>
