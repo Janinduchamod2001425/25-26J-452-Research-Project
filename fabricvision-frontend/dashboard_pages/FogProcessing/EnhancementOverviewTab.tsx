@@ -416,12 +416,12 @@ const EnhancementOverviewDashboard: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <div className="flex justify-between items-center p-2 bg-gray-50/80 rounded-md">
+                {/* <div className="flex justify-between items-center p-2 bg-gray-50/80 rounded-md">
                   <span className="text-xs text-gray-700">Strategy</span>
                   <span className="text-xs font-semibold text-gray-900">
                     Edge-Preserving + Denoise
                   </span>
-                </div>
+                </div> */}
                 <div className="flex justify-between items-center p-2 bg-gray-50/80 rounded-md">
                   <span className="text-xs text-gray-700">Mode</span>
                   <span className="text-xs font-semibold text-gray-900">
