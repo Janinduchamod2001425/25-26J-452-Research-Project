@@ -445,43 +445,57 @@ const Novelty1Motion: React.FC = () => {
               </div>
             </Card>
 
-            {/* Frame Stats & Efficiency */}
-            <Card className="min-h-[210px]">
-              <h3 className="text-xl font-bold text-gray-800 mb-4">
-                Frame Capture Metrics
+            {/* Capture Rules */}
+            <Card className="border border-gray-300 bg-white">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">
+                Frame Capture Logic
               </h3>
+
               <div className="space-y-3">
-                <div className="flex justify-between text-gray-700">
-                  <span>Total Frames (Camera)</span>
-                  <span className="font-bold">{frameStats.totalFrames}</span>
+                {/* ACTIVE */}
+                <div className="flex items-start gap-4 p-3 border-l-4 border-green-500 bg-green-50 rounded">
+                  <Play className="w-6 h-6 text-green-600 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-green-700">
+                      ACTIVE — Capture Frames
+                    </p>
+                    <p className="text-xs text-gray-700">
+                      Stable fabric motion • Full FPS capture
+                    </p>
+                  </div>
                 </div>
-                <div className="flex justify-between text-gray-700">
-                  <span>Saved Frames (Active)</span>
-                  <span className="font-bold text-green-700">
-                    {frameStats.savedFrames}
-                  </span>
+
+                {/* UNSTABLE */}
+                <div className="flex items-start gap-4 p-3 border-l-4 border-amber-500 bg-amber-50 rounded">
+                  <AlertTriangle className="w-6 h-6 text-amber-600 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-amber-700">
+                      UNSTABLE — Adaptive Capture
+                    </p>
+                    <p className="text-xs text-gray-700">
+                      Motion fluctuation • Burst capture near transitions
+                    </p>
+                  </div>
                 </div>
-                <div className="flex justify-between text-gray-700">
-                  <span>Ignored Frames (Idle)</span>
-                  <span className="font-bold text-gray-800">
-                    {frameStats.ignoredFrames}
-                  </span>
-                </div>
-                <div className="flex justify-between text-gray-700 pt-1 border-t border-gray-100">
-                  <span>Active Ratio</span>
-                  <span className="font-bold">{activeRatio.toFixed(1)}%</span>
-                </div>
-                <div className="flex justify-between text-gray-700">
-                  <span>Idle Ratio</span>
-                  <span className="font-bold">{idleRatio.toFixed(1)}%</span>
-                </div>
-                <div className="flex justify-between text-gray-700">
-                  <span>Data Reduction</span>
-                  <span className="font-bold text-green-700">
-                    {reduction.toFixed(1)}% less frames
-                  </span>
+
+                {/* IDLE */}
+                <div className="flex items-start gap-4 p-3 border-l-4 border-red-500 bg-red-50 rounded">
+                  <Pause className="w-6 h-6 text-red-600 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-red-700">
+                      IDLE — Skip Frames
+                    </p>
+                    <p className="text-xs text-gray-700">
+                      No effective motion • Frames ignored
+                    </p>
+                  </div>
                 </div>
               </div>
+
+              <p className="mt-4 text-[11px] text-gray-500 leading-relaxed">
+                Rule-based capture logic applied at the edge to reduce redundant
+                frames before downstream processing.
+              </p>
             </Card>
           </div>
 
@@ -567,57 +581,43 @@ const Novelty1Motion: React.FC = () => {
 
           {/* RIGHT COLUMN */}
           <div className="space-y-6">
-            {/* Capture Rules */}
-            <Card className="border border-gray-300 bg-white">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">
-                Frame Capture Logic
+            {/* Frame Stats & Efficiency */}
+            <Card className="min-h-[210px]">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">
+                Frame Capture Metrics
               </h3>
-
               <div className="space-y-3">
-                {/* ACTIVE */}
-                <div className="flex items-start gap-4 p-3 border-l-4 border-green-500 bg-green-50 rounded">
-                  <Play className="w-6 h-6 text-green-600 mt-0.5" />
-                  <div>
-                    <p className="font-semibold text-green-700">
-                      ACTIVE — Capture Frames
-                    </p>
-                    <p className="text-xs text-gray-700">
-                      Stable fabric motion • Full FPS capture
-                    </p>
-                  </div>
+                <div className="flex justify-between text-gray-700">
+                  <span>Total Frames (Camera)</span>
+                  <span className="font-bold">{frameStats.totalFrames}</span>
                 </div>
-
-                {/* UNSTABLE */}
-                <div className="flex items-start gap-4 p-3 border-l-4 border-amber-500 bg-amber-50 rounded">
-                  <AlertTriangle className="w-6 h-6 text-amber-600 mt-0.5" />
-                  <div>
-                    <p className="font-semibold text-amber-700">
-                      UNSTABLE — Adaptive Capture
-                    </p>
-                    <p className="text-xs text-gray-700">
-                      Motion fluctuation • Burst capture near transitions
-                    </p>
-                  </div>
+                <div className="flex justify-between text-gray-700">
+                  <span>Saved Frames (Active)</span>
+                  <span className="font-bold text-green-700">
+                    {frameStats.savedFrames}
+                  </span>
                 </div>
-
-                {/* IDLE */}
-                <div className="flex items-start gap-4 p-3 border-l-4 border-red-500 bg-red-50 rounded">
-                  <Pause className="w-6 h-6 text-red-600 mt-0.5" />
-                  <div>
-                    <p className="font-semibold text-red-700">
-                      IDLE — Skip Frames
-                    </p>
-                    <p className="text-xs text-gray-700">
-                      No effective motion • Frames ignored
-                    </p>
-                  </div>
+                <div className="flex justify-between text-gray-700">
+                  <span>Ignored Frames (Idle)</span>
+                  <span className="font-bold text-gray-800">
+                    {frameStats.ignoredFrames}
+                  </span>
+                </div>
+                <div className="flex justify-between text-gray-700 pt-1 border-t border-gray-100">
+                  <span>Active Ratio</span>
+                  <span className="font-bold">{activeRatio.toFixed(1)}%</span>
+                </div>
+                <div className="flex justify-between text-gray-700">
+                  <span>Idle Ratio</span>
+                  <span className="font-bold">{idleRatio.toFixed(1)}%</span>
+                </div>
+                <div className="flex justify-between text-gray-700">
+                  <span>Data Reduction</span>
+                  <span className="font-bold text-green-700">
+                    {reduction.toFixed(1)}% less frames
+                  </span>
                 </div>
               </div>
-
-              <p className="mt-4 text-[11px] text-gray-500 leading-relaxed">
-                Rule-based capture logic applied at the edge to reduce redundant
-                frames before downstream processing.
-              </p>
             </Card>
 
             {/* Motion Stability */}

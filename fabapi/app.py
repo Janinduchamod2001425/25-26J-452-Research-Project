@@ -3,6 +3,8 @@ from fastapi import FastAPI, UploadFile, File, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
+from pathlib import Path
+
 
 # ===============================
 # Component 1 services
@@ -12,17 +14,29 @@ from fabapi.services.framecapture.anomaly_api import router as anomaly_router
 from fabapi.services.framecapture.quality_api import router as quality_router
 
 # ===============================
+# Component 2 services
+# ===============================
+from fabapi.services.fogcomputing.router import router as fog_router
+# ===============================
 # Component 3 services
 # ===============================
 from fabapi.services.fabricdetection.detector import FabricDefectDetector
+
+# Component 4 services
+# ===============================
+
+from fabapi.services.futurepredict.router import router as modelA_router
+from fabapi.services.modelb.router import router as modelB_router
 
 # ===============================
 # ENVIRONMENT SETUP
 # ===============================
 load_dotenv()
 
-MODEL_PATH = os.getenv("MODEL_PATH", "models/best.pt")
-CLASS_MAPPING_PATH = os.getenv("CLASS_MAPPING_PATH", "models/class_mapping.json")
+APP_DIR = Path(__file__).parent
+
+MODEL_PATH = os.getenv("MODEL_PATH", str(APP_DIR / "models" / "best.pt"))
+CLASS_MAPPING_PATH = os.getenv("CLASS_MAPPING_PATH", str(APP_DIR / "models" / "class_mapping.json"))
 DEFAULT_CONFIDENCE = float(os.getenv("CONFIDENCE", "0.25"))
 
 
@@ -182,6 +196,17 @@ app.include_router(motion_router)
 app.include_router(anomaly_router)
 app.include_router(quality_router)
 
+# ===============================
+# Fog Computing router
+# ===============================
+app.include_router(fog_router)
+
+# ===============================
+# defects prediction Routers (Duvidu)
+# ===============================
+
+app.include_router(modelA_router)
+app.include_router(modelB_router)
 
 # ===============================
 # ERROR HANDLER (EXISTING)

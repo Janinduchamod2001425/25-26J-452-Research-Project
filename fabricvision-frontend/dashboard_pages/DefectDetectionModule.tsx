@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import { Inter } from "next/font/google";
-import { FiFileText, FiActivity, FiBarChart2, FiSettings } from "react-icons/fi";
+import { FiFileText, FiActivity, FiBarChart2, FiSettings, FiUpload, FiImage, FiAlertCircle, FiCheckCircle } from "react-icons/fi";
 import DefectReportingTab from "./DefectDetection/DefectReportingTab";
 import RealTimeDashboard from "./DefectDetection/RealTimeDashboard";
 import HistoryAnalytics from "./DefectDetection/HistoryAnalytics";
@@ -32,11 +32,38 @@ const subTabs = [
 const DefectDetectionModule: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [activeSubTab, setActiveSubTab] = useState<string>("dashboard");
+  const [apiData, setApiData] = useState<any>(null);
+  const [uploadStatus, setUploadStatus] = useState<{loading: boolean; error: string | null}>({ loading: false, error: null });
 
   useEffect(() => {
     const timer = setTimeout(() => setLoading(false), 1200);
     return () => clearTimeout(timer);
   }, []);
+
+  const handleFileUpload = async (file: File) => {
+    setUploadStatus({ loading: true, error: null });
+    
+    const formData = new FormData();
+    formData.append("file", file);
+    
+    try {
+      const response = await fetch("http://localhost:8000/detect?confidence=0.25", {
+        method: "POST",
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      setApiData(data);
+      setUploadStatus({ loading: false, error: null });
+    } catch (error: any) {
+      setUploadStatus({ loading: false, error: error.message });
+      console.error("Upload error:", error);
+    }
+  };
 
   const activeTab = subTabs.find((t) => t.key === activeSubTab);
   const ActiveIcon = activeTab?.icon || FiActivity;
@@ -46,13 +73,13 @@ const DefectDetectionModule: React.FC = () => {
       case "reporting":
         return <DefectReportingTab />;
       case "dashboard":
-        return <RealTimeDashboard />;
+        return <RealTimeDashboard apiData={apiData} onFileUpload={handleFileUpload} uploadStatus={uploadStatus} />;
       case "history":
         return <HistoryAnalytics />;
       case "config":
         return <SystemConfiguration />;
       default:
-        return <RealTimeDashboard />;
+        return <RealTimeDashboard apiData={apiData} onFileUpload={handleFileUpload} uploadStatus={uploadStatus} />;
     }
   };
 

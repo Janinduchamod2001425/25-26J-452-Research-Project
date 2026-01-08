@@ -65,10 +65,10 @@ const ImageClassificationTab: React.FC = () => {
         <h1 className="text-2xl font-bold text-gray-900">
           Fabric Classification & Enhancement
         </h1>
-        <p className="text-gray-600">
+        {/* <p className="text-gray-600">
           Upload once → class + confidence + probabilities, and Quality
           Analytics tab will show metrics.
-        </p>
+        </p> */}
       </div>
 
       {/* Upload */}
