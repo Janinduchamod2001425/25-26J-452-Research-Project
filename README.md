@@ -111,15 +111,21 @@ Why it matters:
 
 <hr>
 
-### **_Component 2 – Title_**
+## **_Component 2 – Title_**
+
+### Add Details about Component 2 here
 
 <hr>
 
-### **_Component 3 – Title_**
+## **_Component 3 – Title_**
+
+### Add Details about Component 3 here
 
 <hr>
 
-### **_Component 4 – Title_**
+## **_Component 4 – Title_**
+
+### Add Details about Component 4 here
 
 </details>
 
