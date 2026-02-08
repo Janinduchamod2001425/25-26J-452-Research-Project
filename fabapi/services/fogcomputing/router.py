@@ -200,8 +200,11 @@
 # new version
 from fastapi import APIRouter, File, UploadFile, HTTPException
 from fabapi.services.fogcomputing.model_service import predict_patterned, predict_pattern_type
+from fabapi.services.fogcomputing.enhancer import enhance_with_metadata, RunningStats
+import base64
 
 router = APIRouter(prefix="/fog", tags=["Fog Computing"])
+GLOBAL_STATS = RunningStats(alpha=0.12)
 
 @router.post("/classify/patterned")
 async def classify_patterned(file: UploadFile = File(...)):
@@ -244,3 +247,71 @@ async def classify_full(file: UploadFile = File(...)):
         out["pattern_type_result"] = {"label": "none", "confidence": 1.0, "top3": []}
 
     return out
+
+@router.post("/enhance")
+async def enhance_fabric_frame(file: UploadFile = File(...)):
+    """
+    Full fog-level enhancement pipeline:
+    - pattern vs non-patterned
+    - pattern type (if patterned)
+    - advanced quality analysis
+    - adaptive enhancement
+    """
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Please upload an image file")
+
+    image_bytes = await file.read()
+
+    # --------------------------------------------------
+    # 1) Pattern vs Non-patterned
+    # --------------------------------------------------
+    patterned_result = predict_patterned(image_bytes)
+
+    patterned_label = patterned_result["label"]
+
+    # --------------------------------------------------
+    # 2) Pattern Type (only if patterned)
+    # --------------------------------------------------
+    if patterned_label == "patterned":
+        pattern_type_result = predict_pattern_type(image_bytes)
+        pattern_type_label = pattern_type_result["label"]
+    else:
+        pattern_type_result = {
+            "label": "none",
+            "confidence": 1.0,
+            "top3": []
+        }
+        pattern_type_label = "none"
+
+    # --------------------------------------------------
+    # 3) Enhancement + Advanced Quality Metrics
+    # --------------------------------------------------
+    enhancement_result = enhance_with_metadata(
+        image_bytes=image_bytes,
+        patterned_label=patterned_label,
+        pattern_type=pattern_type_label,
+        stats=QUALITY_STATS
+    )
+
+    # --------------------------------------------------
+    # 4) Encode enhanced image for Swagger/UI
+    # --------------------------------------------------
+    enhanced_b64 = base64.b64encode(
+        enhancement_result["enhanced_image_jpeg_bytes"]
+    ).decode("utf-8")
+
+    # --------------------------------------------------
+    # 5) Final API Response
+    # --------------------------------------------------
+    return {
+        "patterned_result": patterned_result,
+        "pattern_type_result": pattern_type_result,
+        "enhancement": {
+            "strategy": enhancement_result["strategy"],
+            "decision": enhancement_result["decision"],
+            "metrics_before": enhancement_result["metrics_before"],
+            "metrics_after": enhancement_result["metrics_after"],
+            "delta": enhancement_result["delta"],
+            "enhanced_image_base64": enhanced_b64
+        }
+    }
