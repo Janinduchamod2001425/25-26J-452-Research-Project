@@ -9,7 +9,7 @@ from PIL import Image
 BASE_DIR = Path(__file__).resolve().parents[2]  # fabapi/
 MODELS_DIR = BASE_DIR / "models" / "fogcomputing"
 
-PATTERN_BINARY_PATH = MODELS_DIR / "pattern_type_best.keras"
+PATTERN_BINARY_PATH = MODELS_DIR / "pattern_vs_nonpatterned_efficientnetlite.keras"
 PATTERN_TYPE_PATH   = MODELS_DIR / "pattern_type_efficientnetb0.keras"
 CLASS_NAMES_PATH    = MODELS_DIR / "class_mapping.json"
 

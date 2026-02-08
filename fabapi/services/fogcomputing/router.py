@@ -199,7 +199,7 @@
 
 # new version
 from fastapi import APIRouter, File, UploadFile, HTTPException
-from services.fogcomputing.model_service import predict_patterned, predict_pattern_type
+from fabapi.services.fogcomputing.model_service import predict_patterned, predict_pattern_type
 
 router = APIRouter(prefix="/fog", tags=["Fog Computing"])
 
