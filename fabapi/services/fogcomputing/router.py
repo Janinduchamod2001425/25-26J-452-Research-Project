@@ -2,6 +2,7 @@
 from fastapi import APIRouter, File, UploadFile, HTTPException
 from fabapi.services.fogcomputing.model_service import predict_patterned, predict_pattern_type
 from fabapi.services.fogcomputing.enhancer import enhance_with_metadata, RunningStats
+from fabapi.services.fogcomputing.frame_sender import send_enhanced_frame
 import base64
 QUALITY_STATS = RunningStats(alpha=0.12)
 
@@ -101,6 +102,10 @@ async def enhance_fabric_frame(file: UploadFile = File(...)):
         enhancement_result["enhanced_image_jpeg_bytes"]
     ).decode("utf-8")
 
+    # send enhanced images
+    send_enhanced_frame(
+    enhancement_result["enhanced_image_jpeg_bytes"]
+)
     # --------------------------------------------------
     # 5) Final API Response
     # --------------------------------------------------
