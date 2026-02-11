@@ -202,9 +202,9 @@ from fastapi import APIRouter, File, UploadFile, HTTPException
 from fabapi.services.fogcomputing.model_service import predict_patterned, predict_pattern_type
 from fabapi.services.fogcomputing.enhancer import enhance_with_metadata, RunningStats
 import base64
+QUALITY_STATS = RunningStats(alpha=0.12)
 
 router = APIRouter(prefix="/fog", tags=["Fog Computing"])
-GLOBAL_STATS = RunningStats(alpha=0.12)
 
 @router.post("/classify/patterned")
 async def classify_patterned(file: UploadFile = File(...)):
