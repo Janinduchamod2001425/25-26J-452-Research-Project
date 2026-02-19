@@ -288,7 +288,7 @@ def select_strategy(
 
     # Sharpen: unsharp amount
     sharpen_amount = 0.25 + 1.0 * sharpen_need  # 0.25..1.25
-    sharpen_amount = float(np.clip(sharpen_amount, 0.0, 1.6))
+    sharpen_amount = float(np.clip(sharpen_amount, 0.0, 1.0))
 
     # Pattern-aware modulation:
     # Patterned fabrics: preserve edges, avoid heavy denoise, avoid too much CLAHE
