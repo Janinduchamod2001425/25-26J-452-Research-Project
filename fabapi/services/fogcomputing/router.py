@@ -181,7 +181,8 @@ async def enhance_fabric_frame(file: UploadFile = File(...)):
             "patterned_label": patterned_label,
             "patterned_confidence": patterned_conf,
             "pattern_type": pattern_type_label,
-            "pattern_type_confidence": pattern_type_conf
+            "pattern_type_confidence": pattern_type_conf,
+            "dominant_colors": enhancement_result["color_info"]
         },
         "enhancement": {
             "strategy": enhancement_result["strategy"],
@@ -209,6 +210,7 @@ async def enhance_fabric_frame(file: UploadFile = File(...)):
         "enhancement": {
             "strategy": enhancement_result["strategy"],
             "quality_score": score,
+            "color_info": enhancement_result["color_info"],  
             "metrics_before": enhancement_result["metrics_before"],
             "metrics_after": enhancement_result["metrics_after"],
             "delta": enhancement_result["delta"],

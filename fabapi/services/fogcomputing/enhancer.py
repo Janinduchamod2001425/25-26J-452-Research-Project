@@ -11,6 +11,7 @@ from typing import Dict, Any, Optional, Tuple
 import numpy as np
 import cv2
 from PIL import Image
+from collections import defaultdict
 
 
 # =========================================================
@@ -33,6 +34,95 @@ def bgr_to_jpeg_bytes(bgr: np.ndarray, quality: int = 92) -> bytes:
     out = io.BytesIO()
     pil_img.save(out, format="JPEG", quality=int(np.clip(quality, 70, 98)))
     return out.getvalue()
+
+# =========================================================
+# 🔵 COLOR IDENTIFICATION (ADDED – DOES NOT affect enhancement)
+# =========================================================
+
+COLOR_PROTOTYPES = {
+    "red":      np.array([220, 30, 30]),
+    "green":    np.array([30, 160, 60]),
+    "blue":     np.array([30, 60, 200]),
+    "yellow":   np.array([230, 200, 40]),
+    "orange":   np.array([240, 140, 40]),
+    "purple":   np.array([140, 60, 160]),
+    "pink":     np.array([230, 120, 160]),
+    "brown":    np.array([150, 100, 50]),
+    "white":    np.array([240, 240, 240]),
+    "black":    np.array([20, 20, 20]),
+    "gray":     np.array([130, 130, 130]),
+}
+
+
+def _closest_color(rgb: np.ndarray) -> str:
+    min_dist = float("inf")
+    best_color = "unknown"
+
+    for name, ref in COLOR_PROTOTYPES.items():
+        dist = np.linalg.norm(rgb - ref)
+        if dist < min_dist:
+            min_dist = dist
+            best_color = name
+
+    return best_color
+
+
+def detect_dominant_colors(bgr: np.ndarray, k: int = 3) -> Dict[str, Any]:
+    """
+    K-Means based dominant color detection.
+    NO fixed thresholds.
+    """
+    small = cv2.resize(bgr, (150, 150))
+    pixels = small.reshape((-1, 3)).astype(np.float32)
+
+    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 20, 1.0)
+    _, labels, centers = cv2.kmeans(
+        pixels, k, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS
+    )
+
+    counts = np.bincount(labels.flatten())
+    sorted_idx = np.argsort(counts)[::-1]
+
+    total_pixels = len(pixels)
+    color_results = []
+
+    for idx in sorted_idx:
+        center_bgr = centers[idx]
+        center_rgb = center_bgr[::-1]
+        color_name = _closest_color(center_rgb)
+        ratio = float(counts[idx] / total_pixels)
+
+        # color_results.append({
+        #     "color": color_name,
+        #     "ratio": ratio
+        # })
+
+    color_accumulator = defaultdict(float)
+
+    for idx in sorted_idx:
+            center_bgr = centers[idx]
+            center_rgb = center_bgr[::-1]
+            color_name = _closest_color(center_rgb)
+            ratio = float(counts[idx] / total_pixels)
+
+            color_accumulator[color_name] += ratio
+
+        # convert to sorted list
+    color_results = [
+            {"color": c, "ratio": r}
+            for c, r in color_accumulator.items()
+        ]
+
+    color_results = sorted(color_results, key=lambda x: x["ratio"], reverse=True)
+
+    dominant = color_results[0]["color"] if color_results else "unknown"
+    secondary = color_results[1]["color"] if len(color_results) > 1 else None
+
+    return {
+        "dominant_color": dominant,
+        "secondary_color": secondary,
+        "distribution": color_results
+    }
 
 
 # =========================================================
@@ -435,6 +525,8 @@ def enhance_with_metadata(
     """
     bgr = bytes_to_bgr(image_bytes)
 
+    color_info = detect_dominant_colors(bgr)
+
     metrics_before = compute_quality_metrics(bgr)
 
     # Initialize/update running stats for adaptive behavior
@@ -459,6 +551,7 @@ def enhance_with_metadata(
     return {
         "strategy": strategy,
         "decision": decision,
+        "color_info": color_info,
         "metrics_before": metrics_before,
         "metrics_after": metrics_after,
         "delta": delta,
@@ -470,3 +563,231 @@ def enhance_with_metadata(
             "initialized": stats.initialized,
         }
     }
+
+
+
+#new code after i added the color identification
+# fabapi/services/fogcomputing/enhancer.py
+
+# from __future__ import annotations
+
+# import io
+# import math
+# from dataclasses import dataclass
+# from typing import Dict, Any, Optional, Tuple
+
+# import numpy as np
+# import cv2
+# from PIL import Image
+
+
+# # =========================================================
+# # Helpers: Image I/O
+# # =========================================================
+
+# def bytes_to_bgr(image_bytes: bytes) -> np.ndarray:
+#     img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+#     rgb = np.array(img, dtype=np.uint8)
+#     bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+#     return bgr
+
+
+# def bgr_to_jpeg_bytes(bgr: np.ndarray, quality: int = 92) -> bytes:
+#     rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+#     pil_img = Image.fromarray(rgb)
+#     out = io.BytesIO()
+#     pil_img.save(out, format="JPEG", quality=int(np.clip(quality, 70, 98)))
+#     return out.getvalue()
+
+
+# # =========================================================
+# # Adaptive Running Stats
+# # =========================================================
+
+# @dataclass
+# class RunningStats:
+#     alpha: float = 0.12
+#     mu: Dict[str, float] = None
+#     var: Dict[str, float] = None
+#     initialized: bool = False
+
+#     def __post_init__(self):
+#         if self.mu is None:
+#             self.mu = {}
+#         if self.var is None:
+#             self.var = {}
+
+#     def update(self, metrics: Dict[str, float]) -> None:
+#         eps = 1e-8
+#         if not self.initialized:
+#             for k, v in metrics.items():
+#                 self.mu[k] = float(v)
+#                 self.var[k] = 1.0
+#             self.initialized = True
+#             return
+
+#         for k, v in metrics.items():
+#             mu_old = self.mu.get(k, v)
+#             var_old = self.var.get(k, 1.0)
+
+#             mu_new = (1 - self.alpha) * mu_old + self.alpha * v
+#             var_new = (1 - self.alpha) * var_old + self.alpha * ((v - mu_new) ** 2)
+
+#             self.mu[k] = float(mu_new)
+#             self.var[k] = float(max(var_new, eps))
+
+#     def zscore(self, key: str, value: float) -> float:
+#         eps = 1e-8
+#         mu = self.mu.get(key, value)
+#         var = self.var.get(key, 1.0)
+#         return float((value - mu) / math.sqrt(var + eps))
+
+
+# # =========================================================
+# # Advanced Quality Metrics
+# # =========================================================
+
+# def compute_quality_metrics(bgr: np.ndarray) -> Dict[str, float]:
+#     gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
+
+#     brightness = float(np.median(gray) / 255.0)
+
+#     p10 = float(np.percentile(gray, 10) / 255.0)
+#     p90 = float(np.percentile(gray, 90) / 255.0)
+#     contrast = float(np.clip(p90 - p10, 0.0, 1.0))
+
+#     lap_var = float(cv2.Laplacian(gray, cv2.CV_64F).var())
+
+#     return {
+#         "brightness": brightness,
+#         "contrast": contrast,
+#         "sharpness_lap": lap_var,
+#         "p10": p10,
+#         "p90": p90,
+#     }
+
+
+# # =========================================================
+# # Adaptive Color Detection (NO fixed thresholds)
+# # =========================================================
+
+# COLOR_PROTOTYPES = {
+#     "red":      np.array([220, 30, 30]),
+#     "green":    np.array([30, 160, 60]),
+#     "blue":     np.array([30, 60, 200]),
+#     "yellow":   np.array([230, 200, 40]),
+#     "orange":   np.array([240, 140, 40]),
+#     "purple":   np.array([140, 60, 160]),
+#     "pink":     np.array([230, 120, 160]),
+#     "brown":    np.array([150, 100, 50]),
+#     "white":    np.array([240, 240, 240]),
+#     "black":    np.array([20, 20, 20]),
+#     "gray":     np.array([130, 130, 130]),
+# }
+
+
+# def _closest_color(rgb: np.ndarray) -> str:
+#     min_dist = float("inf")
+#     best_color = "unknown"
+
+#     for name, ref in COLOR_PROTOTYPES.items():
+#         dist = np.linalg.norm(rgb - ref)
+#         if dist < min_dist:
+#             min_dist = dist
+#             best_color = name
+
+#     return best_color
+
+
+# def detect_dominant_colors(bgr: np.ndarray, k: int = 3) -> Dict[str, Any]:
+#     small = cv2.resize(bgr, (150, 150))
+#     pixels = small.reshape((-1, 3)).astype(np.float32)
+
+#     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 20, 1.0)
+#     _, labels, centers = cv2.kmeans(
+#         pixels, k, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS
+#     )
+
+#     counts = np.bincount(labels.flatten())
+#     sorted_idx = np.argsort(counts)[::-1]
+
+#     total_pixels = len(pixels)
+#     color_results = []
+
+#     for idx in sorted_idx:
+#         center_bgr = centers[idx]
+#         center_rgb = center_bgr[::-1]
+#         color_name = _closest_color(center_rgb)
+#         ratio = float(counts[idx] / total_pixels)
+
+#         color_results.append({
+#             "color": color_name,
+#             "ratio": ratio
+#         })
+
+#     dominant = color_results[0]["color"] if color_results else "unknown"
+#     secondary = color_results[1]["color"] if len(color_results) > 1 else None
+
+#     return {
+#         "dominant_color": dominant,
+#         "secondary_color": secondary,
+#         "distribution": color_results
+#     }
+
+
+# # =========================================================
+# # Simple Enhancement (unchanged logic)
+# # =========================================================
+
+# def apply_enhancement(bgr: np.ndarray) -> np.ndarray:
+#     lab = cv2.cvtColor(bgr, cv2.COLOR_BGR2LAB)
+#     l, a, b = cv2.split(lab)
+#     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+#     l2 = clahe.apply(l)
+#     merged = cv2.merge([l2, a, b])
+#     return cv2.cvtColor(merged, cv2.COLOR_LAB2BGR)
+
+
+# # =========================================================
+# # Public API
+# # =========================================================
+
+# def enhance_with_metadata(
+#     image_bytes: bytes,
+#     patterned_label: str,
+#     pattern_type: str = "none",
+#     stats: Optional[RunningStats] = None,
+# ) -> Dict[str, Any]:
+
+#     bgr = bytes_to_bgr(image_bytes)
+
+#     # Color detection (NO impact on enhancement)
+#     color_info = detect_dominant_colors(bgr)
+
+#     metrics_before = compute_quality_metrics(bgr)
+
+#     if stats is None:
+#         stats = RunningStats()
+#         stats.update(metrics_before)
+#     else:
+#         stats.update(metrics_before)
+
+#     enhanced = apply_enhancement(bgr)
+
+#     metrics_after = compute_quality_metrics(enhanced)
+
+#     delta = {
+#         k: float(metrics_after.get(k, 0.0) - metrics_before.get(k, 0.0))
+#         for k in metrics_before.keys()
+#     }
+
+#     enhanced_bytes = bgr_to_jpeg_bytes(enhanced)
+
+#     return {
+#         # "color_analysis": color_info,
+#         "color_info": color_info, 
+#         "metrics_before": metrics_before,
+#         "metrics_after": metrics_after,
+#         "delta": delta,
+#         "enhanced_image_jpeg_bytes": enhanced_bytes,
+#     }
