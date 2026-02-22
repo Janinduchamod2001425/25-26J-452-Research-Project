@@ -8,7 +8,9 @@ from fabapi.services.fogcomputing.tflite_model_service import predict_patterned,
 from fabapi.services.fogcomputing.enhancer import enhance_with_metadata, RunningStats
 from fabapi.services.fogcomputing.status_utils import quality_score_0_100, build_alerts
 from fabapi.services.fogcomputing.state import APP_START_TIME, LATEST_STATUS, update_status
+from fabapi.services.fogcomputing.fabric_state import fabric_state
 from fabapi.services.fogcomputing.frame_sender import send_enhanced_frame
+
 
 QUALITY_STATS = RunningStats(alpha=0.12)
 
@@ -89,6 +91,12 @@ class FolderPipeline:
             patterned_label=patterned_label,
             pattern_type=pattern_type_label,
             stats=QUALITY_STATS
+        )
+
+        fabric_state.update(
+            patterned_label,
+            pattern_type_label,
+            enh["color_info"]
         )
 
         score = quality_score_0_100(enh["metrics_after"])
