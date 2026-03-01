@@ -64,8 +64,8 @@ const DefectReportingTab: React.FC = () => {
     nextRun: string;
   }>({
     running: true,
-    lastRun: "2024-01-15 08:00:00",
-    nextRun: "2024-01-16 08:00:00"
+    lastRun: "2026-01-15 08:00:00",
+    nextRun: "2026-01-16 08:00:00"
   });
   
   const [newRecipient, setNewRecipient] = useState({ name: "", email: "" });
