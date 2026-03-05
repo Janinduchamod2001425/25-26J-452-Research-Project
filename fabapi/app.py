@@ -249,11 +249,13 @@ async def stop_scan(sid, data=None):
 async def get_status(sid, data=None):
     """Client requested current status"""
     try:
+        pending_files_info = [{"filename": f["filename"], "position_cm": f.get("position_cm", 0)} for f in realtime_manager.pending_files[:10]]
         await sio.emit('status', {
             'is_running': realtime_manager.is_running,
             'is_paused': realtime_manager.is_paused,
             'current_file': realtime_manager.current_file,
             'pending_count': len(realtime_manager.pending_files),
+            'pending_files': pending_files_info,
             'processed_count': len(realtime_manager.processed_files),
             'connected_clients': len(realtime_manager.connected_clients),
             'timestamp': datetime.now().isoformat()
@@ -268,7 +270,6 @@ async def get_stats(sid, data=None):
         if realtime_manager.stats_db:
             stats = await realtime_manager.stats_db.get_current_stats()
             
-            # Convert datetime objects to strings
             if stats and 'last_updated' in stats and isinstance(stats['last_updated'], datetime):
                 stats['last_updated'] = stats['last_updated'].isoformat()
             
@@ -290,7 +291,7 @@ async def get_stats(sid, data=None):
 
 @sio.event
 async def get_history(sid, data=None):
-    """Client requested detection history"""
+    """Client requested detection history (only defect frames)"""
     try:
         if realtime_manager.mongodb:
             limit = data.get('limit', 20) if data else 20
@@ -298,7 +299,6 @@ async def get_history(sid, data=None):
             history = await realtime_manager.mongodb.get_detections(limit, skip)
             total = await realtime_manager.mongodb.get_count()
             
-            # Convert datetime objects to strings in history
             for item in history:
                 if 'timestamp' in item and isinstance(item['timestamp'], datetime):
                     item['timestamp'] = item['timestamp'].isoformat()
@@ -318,12 +318,12 @@ async def get_history(sid, data=None):
                 'error': 'MongoDB not connected'
             }, room=sid)
     except Exception as e:
-        print(f" Error in get_history: {e}")
+        print(f"Error in get_history: {e}")
         await sio.emit('history_response', {
             'success': False,
             'error': str(e)
         }, room=sid)
-
+        
 # Regular HTTP endpoints
 @app.get("/health")
 async def health_check():
@@ -340,14 +340,13 @@ async def health_check():
 
 @app.get("/api/history")
 async def api_history(limit: int = 20, skip: int = 0):
-    """Get detection history via HTTP"""
+    """Get detection history via HTTP (only defect frames)"""
     try:
         if not realtime_manager.mongodb:
             raise HTTPException(status_code=503, detail="MongoDB not connected")
         history = await realtime_manager.mongodb.get_detections(limit, skip)
         total = await realtime_manager.mongodb.get_count()
         
-        # Convert datetime objects to strings
         for item in history:
             if 'timestamp' in item and isinstance(item['timestamp'], datetime):
                 item['timestamp'] = item['timestamp'].isoformat()
@@ -372,7 +371,6 @@ async def api_stats():
             raise HTTPException(status_code=503, detail="Statistics DB not connected")
         stats = await realtime_manager.stats_db.get_current_stats()
         
-        # Convert datetime objects to strings
         if stats and 'last_updated' in stats and isinstance(stats['last_updated'], datetime):
             stats['last_updated'] = stats['last_updated'].isoformat()
         
@@ -382,7 +380,7 @@ async def api_stats():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
+    
 @app.get("/socket-test")
 async def socket_test():
     """Test Socket.IO connection"""

@@ -12,11 +12,10 @@ import {
   FiAlertCircle, FiCheckCircle, FiUpload, 
   FiPlay, FiPause, FiRefreshCw, FiDatabase,
   FiClock, FiImage, FiActivity, FiWifi, FiWifiOff,
-  FiBarChart2,
-  FiRefreshCcw, 
+  FiBarChart2, FiRefreshCcw, FiZap
 } from "react-icons/fi";
+import { FaPencilRuler } from "react-icons/fa";
 
-// Define interfaces
 interface Defect {
   id: number;
   type: string;
@@ -57,6 +56,9 @@ interface DetectionResult {
   annotated_image: string;
   processing_time_ms: number;
   filename?: string;
+  frame_number?: number;
+  pulse_count?: number;
+  position_cm?: number;
   image_info?: {
     filename: string;
     size_bytes: number;
@@ -70,6 +72,7 @@ interface ScannerStatus {
   is_paused: boolean;
   current_file: string | null;
   pending_count: number;
+  pending_files?: Array<{filename: string, position_cm: number}>;
   processed_count: number;
   connected_clients: number;
   stats?: {
@@ -83,6 +86,7 @@ interface DefectAlert {
   show: boolean;
   message: string;
   filename: string;
+  position_cm: number;
   defects: Defect[];
 }
 
@@ -132,6 +136,7 @@ const RealTimeDashboard: React.FC<RealTimeDashboardProps> = ({
   const [showRealtimeLog, setShowRealtimeLog] = useState<boolean>(true);
   const [totalHistoryCount, setTotalHistoryCount] = useState<number>(0);
   const [lastUpdated, setLastUpdated] = useState<string>("Just now");
+  const [currentPosition, setCurrentPosition] = useState<number | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -140,7 +145,6 @@ const RealTimeDashboard: React.FC<RealTimeDashboardProps> = ({
     return () => clearTimeout(timer);
   }, []);
 
-  // Update system status from stats data
   useEffect(() => {
     if (statsData) {
       setSystemStatus(prev => ({
@@ -159,19 +163,29 @@ const RealTimeDashboard: React.FC<RealTimeDashboardProps> = ({
     }
   }, [statsData]);
 
-  // Update from latest result
   useEffect(() => {
     if (latestResult) {
       setLastUpdated(new Date().toLocaleTimeString());
+      if (latestResult.position_cm) {
+        setCurrentPosition(latestResult.position_cm);
+      }
     }
   }, [latestResult]);
+
+  useEffect(() => {
+    if (scannerStatus.current_file && scannerStatus.pending_files && scannerStatus.pending_files.length > 0) {
+      const currentPending = scannerStatus.pending_files.find(f => f.filename === scannerStatus.current_file);
+      if (currentPending) {
+        setCurrentPosition(currentPending.position_cm);
+      }
+    }
+  }, [scannerStatus.current_file, scannerStatus.pending_files]);
 
   const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       onFileUpload(file);
     }
-    // Reset input
     if (event.target) {
       event.target.value = '';
     }
@@ -224,7 +238,7 @@ const RealTimeDashboard: React.FC<RealTimeDashboardProps> = ({
                   <div className="flex items-start gap-3">
                     <FiAlertCircle className="w-6 h-6 text-red-500 flex-shrink-0 mt-0.5" />
                     <div>
-                      <h3 className="font-semibold text-red-800">Defect Detected!</h3>
+                      <h3 className="font-semibold text-red-800">Defect Detected at {defectAlert.position_cm.toFixed(2)} cm!</h3>
                       <p className="text-red-700 text-sm mt-1">{defectAlert.message}</p>
                       <div className="mt-2 flex flex-wrap gap-2">
                         {defectAlert.defects.map((defect, idx) => (
@@ -279,6 +293,13 @@ const RealTimeDashboard: React.FC<RealTimeDashboardProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <FaPencilRuler className="w-4 h-4 text-blue-500" />
+                  <span className="text-sm text-gray-600">
+                    Position: {currentPosition !== null ? `${currentPosition.toFixed(2)} cm` : 'N/A'}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
                   <FiClock className="w-4 h-4 text-gray-500" />
                   <span className="text-sm text-gray-600">
                     Pending: {scannerStatus.pending_count} | Processed: {scannerStatus.processed_count}
@@ -316,6 +337,25 @@ const RealTimeDashboard: React.FC<RealTimeDashboardProps> = ({
                 </button>
               </div>
             </div>
+
+            {/* Pending Files List */}
+            {scannerStatus.pending_files && scannerStatus.pending_files.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <div className="text-xs font-medium text-gray-500 mb-2">Pending Queue ({scannerStatus.pending_count}):</div>
+                <div className="flex flex-wrap gap-2">
+                  {scannerStatus.pending_files.slice(0, 5).map((file, idx) => (
+                    <div key={idx} className="px-2 py-1 bg-gray-100 rounded text-xs">
+                      <span className="font-mono">{file.position_cm.toFixed(2)}cm</span>
+                    </div>
+                  ))}
+                  {scannerStatus.pending_count > 5 && (
+                    <div className="px-2 py-1 bg-gray-100 rounded text-xs">
+                      +{scannerStatus.pending_count - 5} more
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Stats Bar */}
             {(scannerStatus.stats || statsData) && (
@@ -379,10 +419,13 @@ const RealTimeDashboard: React.FC<RealTimeDashboardProps> = ({
                         {latestResult.timestamp || 'Just now'}
                       </span>
                     </div>
-                    <div className="mt-1 text-xs text-gray-600">
-                      Defects: {latestResult.summary?.total_defects} | 
-                      Severity: {latestResult.summary?.overall_severity} |
-                      Time: {latestResult.processing_time_ms}ms
+                    <div className="mt-1 flex gap-4 text-xs text-gray-600">
+                      <span>Frame: {latestResult.frame_number || 'N/A'}</span>
+                      <span>Pulse: {latestResult.pulse_count || 'N/A'}</span>
+                      <span>Position: {latestResult.position_cm ? `${latestResult.position_cm.toFixed(2)} cm` : 'N/A'}</span>
+                      <span>Defects: {latestResult.summary?.total_defects || 0}</span>
+                      <span>Severity: {latestResult.summary?.overall_severity || 'N/A'}</span>
+                      <span>Time: {latestResult.processing_time_ms}ms</span>
                     </div>
                   </div>
                 </div>
@@ -425,7 +468,6 @@ const RealTimeDashboard: React.FC<RealTimeDashboardProps> = ({
                 )}
               </button>
 
-              {/* Scanner Control Buttons */}
               <div className="flex items-center gap-2">
                 {!scannerStatus.is_running ? (
                   <button
@@ -536,6 +578,12 @@ const RealTimeDashboard: React.FC<RealTimeDashboardProps> = ({
                     <div className="flex items-center justify-between pt-3 border-t border-gray-100">
                       <span className="text-sm text-gray-600">Total Frames</span>
                       <span className="font-semibold text-indigo-600">{statsData.total_frames_processed}</span>
+                    </div>
+                  )}
+                  {latestResult?.position_cm && (
+                    <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                      <span className="text-sm text-gray-600">Current Position</span>
+                      <span className="font-semibold text-blue-600">{latestResult.position_cm.toFixed(2)} cm</span>
                     </div>
                   )}
                   {statsData?.defect_type_counts && (

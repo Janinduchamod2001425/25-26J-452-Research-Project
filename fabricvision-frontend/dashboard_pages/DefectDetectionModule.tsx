@@ -7,7 +7,7 @@ import {
   FiFileText, FiActivity, FiBarChart2, FiSettings, 
   FiUpload, FiPlay, FiPause, FiRefreshCw, FiDatabase,
   FiWifi, FiWifiOff, FiCheckCircle, FiAlertCircle,
-  FiClock
+  FiClock, FiZap
 } from "react-icons/fi";
 import io, { Socket } from 'socket.io-client';
 import RealTimeDashboard from "./DefectDetection/RealTimeDashboard";
@@ -58,6 +58,9 @@ interface DetectionResult {
   annotated_image: string;
   processing_time_ms: number;
   filename?: string;
+  frame_number?: number;
+  pulse_count?: number;
+  position_cm?: number;
   image_info?: {
     filename: string;
     size_bytes: number;
@@ -74,6 +77,7 @@ interface ScannerStatus {
   is_paused: boolean;
   current_file: string | null;
   pending_count: number;
+  pending_files?: Array<{filename: string, position_cm: number}>;
   processed_count: number;
   connected_clients: number;
   stats?: {
@@ -82,7 +86,6 @@ interface ScannerStatus {
     start_time?: string;
     last_scan?: string;
   };
-  pending_files?: string[];
   timestamp?: string;
   aggregated_stats?: StatsData;
 }
@@ -125,6 +128,9 @@ interface StatusChangeData {
 
 interface ProcessingData {
   filename: string;
+  frame_number: number;
+  pulse: number;
+  position_cm: number;
   timestamp: string;
   status: string;
   time?: string;
@@ -133,6 +139,9 @@ interface ProcessingData {
 interface DefectDetectedData {
   message: string;
   filename: string;
+  frame_number: number;
+  pulse_count: number;
+  position_cm: number;
   defects: Defect[];
   quality: QualityAssessment;
   timestamp?: string;
@@ -187,6 +196,7 @@ interface DefectAlert {
   show: boolean;
   message: string;
   filename: string;
+  position_cm: number;
   defects: Defect[];
 }
 
@@ -228,6 +238,7 @@ const DefectDetectionModule: React.FC = () => {
     is_paused: false,
     current_file: null,
     pending_count: 0,
+    pending_files: [],
     processed_count: 0,
     connected_clients: 0
   });
@@ -237,6 +248,7 @@ const DefectDetectionModule: React.FC = () => {
     show: false, 
     message: "", 
     filename: "", 
+    position_cm: 0,
     defects: [] 
   });
   
@@ -250,7 +262,6 @@ const DefectDetectionModule: React.FC = () => {
   // Fetch initial data via HTTP
   const fetchInitialData = useCallback(async () => {
     try {
-      // Fetch scanner status
       const statusResponse = await fetch("http://localhost:8000/realtime/status");
       if (statusResponse.ok) {
         const data: ScannerStatus = await statusResponse.json();
@@ -258,7 +269,6 @@ const DefectDetectionModule: React.FC = () => {
         setScannerStatus(data);
       }
       
-      // Fetch statistics
       const statsResponse = await fetch("http://localhost:8000/api/stats");
       if (statsResponse.ok) {
         const data = await statsResponse.json();
@@ -268,7 +278,6 @@ const DefectDetectionModule: React.FC = () => {
         }
       }
       
-      // Fetch history
       const historyResponse = await fetch("http://localhost:8000/api/history?limit=20&skip=0");
       if (historyResponse.ok) {
         const data = await historyResponse.json();
@@ -284,7 +293,6 @@ const DefectDetectionModule: React.FC = () => {
   }, []);
 
   const connectSocket = useCallback(() => {
-    // Prevent multiple connection attempts if one is already active
     if (socketRef.current?.connected) return;
 
     console.log("🔄 Attempting Connection to localhost:8000...");
@@ -306,7 +314,6 @@ const DefectDetectionModule: React.FC = () => {
       setSocketConnected(true);
       socket.emit('ping', { client: 'web', timestamp: new Date().toISOString() });
       
-      // Request data on connect
       socket.emit('get_status');
       socket.emit('get_stats');
       socket.emit('get_history', { limit: 20, skip: 0 });
@@ -322,7 +329,6 @@ const DefectDetectionModule: React.FC = () => {
       setSocketConnected(false);
     });
 
-    // --- Event Listeners ---
     socket.on('status', (data: ScannerStatus) => {
       console.log('📊 Status update:', data);
       setScannerStatus(prev => ({ ...prev, ...data }));
@@ -332,7 +338,6 @@ const DefectDetectionModule: React.FC = () => {
       console.log('📊 Status update:', data);
       setScannerStatus(prev => ({ ...prev, ...data }));
       
-      // Update stats if included
       if (data.aggregated_stats) {
         setStatsData(data.aggregated_stats);
       }
@@ -358,40 +363,35 @@ const DefectDetectionModule: React.FC = () => {
     });
 
     socket.on('detection_result', (data: DetectionResult) => {
-      console.log('🎯 New Detection:', data.filename, 'Defects:', data.defects?.length);
+      console.log('🎯 New Detection:', data.filename, 'Defects:', data.defects?.length, 'Pos:', data.position_cm, 'cm');
       console.log('🖼️ Annotated image available:', data.annotated_image ? 'Yes' : 'No');
       
-      // Store only the latest result (replace previous)
       setLatestResult(data);
-      
-      // Update current display with the new result
       setApiData(data);
       
-      // Request updated stats and history
       socket.emit('get_stats');
       socket.emit('get_history', { limit: 20, skip: 0 });
     });
 
     socket.on('defect_detected', (data: DefectDetectedData) => {
-      console.log('⚠️ Defect detected:', data.filename);
+      console.log('⚠️ Defect detected:', data.filename, 'at', data.position_cm, 'cm');
       setDefectAlert({
         show: true,
         message: data.message,
         filename: data.filename,
+        position_cm: data.position_cm,
         defects: data.defects
       });
       
-      // Update stats if included
       if (data.stats) {
         setStatsData(data.stats);
       }
       
-      // Auto-hide alert after 10 seconds
       setTimeout(() => setDefectAlert(prev => ({ ...prev, show: false })), 10000);
     });
 
     socket.on('processing', (data: ProcessingData) => {
-      console.log('⚙️ Processing:', data.filename);
+      console.log('⚙️ Processing:', data.filename, 'Frame:', data.frame_number, 'Pulse:', data.pulse, 'Pos:', data.position_cm, 'cm');
       setScannerStatus(prev => ({ ...prev, current_file: data.filename }));
     });
 
@@ -419,20 +419,16 @@ const DefectDetectionModule: React.FC = () => {
 
   }, []);
 
-  // Socket.IO connection and data fetching
   useEffect(() => {
-    // Initial connection and data fetch
     connectSocket();
     fetchInitialData();
 
-    // Set up periodic stats refresh
     const statsInterval = setInterval(() => {
       if (socketRef.current?.connected) {
         socketRef.current.emit('get_stats');
       }
     }, 5000);
 
-    // Cleanup
     return () => {
       clearInterval(statsInterval);
       if (socketRef.current) {
@@ -466,7 +462,6 @@ const DefectDetectionModule: React.FC = () => {
       setLatestResult(data);
       setUploadStatus({ loading: false, error: null });
       
-      // Refresh stats and history after upload
       if (socketRef.current) {
         socketRef.current.emit('get_stats');
         socketRef.current.emit('get_history', { limit: 20, skip: 0 });
@@ -477,7 +472,6 @@ const DefectDetectionModule: React.FC = () => {
     }
   }, []);
 
-  // Socket.IO event emitters for scanner control
   const startScanner = useCallback(() => {
     if (socketRef.current) {
       console.log('▶️ Starting scanner');
@@ -571,7 +565,6 @@ const DefectDetectionModule: React.FC = () => {
       startScanner, pauseScanner, resumeScanner, stopScanner, latestResult, 
       defectAlert, socketConnected, statsData, historyData, refreshData]);
 
-  // Format last updated time
   const getLastUpdatedText = () => {
     if (statsData?.last_updated) {
       try {
@@ -619,7 +612,6 @@ const DefectDetectionModule: React.FC = () => {
             
             {/* Stats Bar */}
             <div className="flex items-center gap-6">
-              {/* Database Stats */}
               {statsData && (
                 <div className="flex items-center gap-4 bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-200">
                   <div className="flex items-center gap-2">
@@ -640,7 +632,6 @@ const DefectDetectionModule: React.FC = () => {
                 </div>
               )}
               
-              {/* Connection Status */}
               <div className="flex items-center gap-2">
                 {socketConnected ? (
                   <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-700 rounded-lg">
@@ -662,7 +653,6 @@ const DefectDetectionModule: React.FC = () => {
               YOLOv9 • Real-time monitoring • Socket.IO Live Updates
             </p>
             
-            {/* Scanner Controls */}
             <div className="flex items-center gap-3">
               {scannerStatus.is_running ? (
                 <>
