@@ -47,7 +47,7 @@ class RealtimeScanner:
         self.connected_clients: Set[str] = set()
         self.processed_files: Set[str] = set()
         self.current_file: Optional[str] = None
-        self.pending_files: List[Dict] = []  # List of {filename, timestamp} in chronological order
+        self.pending_files: List[Dict] = []  # List of {filename, timestamp, pulse, position_cm} in chronological order
         self.stats = {
             "total_scanned": 0,
             "total_defects": 0,
@@ -75,7 +75,7 @@ class RealtimeScanner:
             # Create necessary folders
             for folder in [IMAGE_FOLDER, DEFECT_FOLDER, NON_DEFECT_FOLDER, PROCESSED_FOLDER]:
                 Path(folder).mkdir(parents=True, exist_ok=True)
-                print(f"📁 Ensured folder exists: {folder}")
+                print(f" Ensured folder exists: {folder}")
             
             # Load processed files history
             await self.load_processed_files()
@@ -83,11 +83,11 @@ class RealtimeScanner:
             # Initialize statistics document if not exists
             await self.stats_db.initialize_stats()
             
-            print("✅ Realtime scanner initialized with Socket.IO and Statistics DB")
-            print(f"📡 Ready to accept connections")
+            print(" Realtime scanner initialized with Socket.IO and Statistics DB")
+            print(f" Ready to accept connections")
             
         except Exception as e:
-            print(f"❌ Failed to initialize scanner: {e}")
+            print(f" Failed to initialize scanner: {e}")
             raise
         
     async def load_processed_files(self):
@@ -96,9 +96,9 @@ class RealtimeScanner:
             if self.mongodb:
                 processed = await self.mongodb.get_all_processed_filenames()
                 self.processed_files = set(processed)
-                print(f"📁 Loaded {len(self.processed_files)} processed files from history")
+                print(f" Loaded {len(self.processed_files)} processed files from history")
         except Exception as e:
-            print(f"⚠️ Could not load processed files: {e}")
+            print(f" Could not load processed files: {e}")
             self.processed_files = set()
     
     async def shutdown(self):
@@ -126,7 +126,7 @@ class RealtimeScanner:
             "timestamp": datetime.now().isoformat()
         })
         
-        print("✅ Realtime scanner shutdown")
+        print(" Realtime scanner shutdown")
     
     async def on_connect(self, sid: str):
         """Handle client connection - FIXED: Convert data to serializable format"""
@@ -149,8 +149,8 @@ class RealtimeScanner:
                 "client_id": sid,
                 "timestamp": datetime.now().isoformat(),
                 "stats": self.stats,
-                "aggregated_stats": serializable_stats,  # Use converted data
-                "recent_history": serializable_history    # Use converted data
+                "aggregated_stats": serializable_stats,
+                "recent_history": serializable_history
             }, room=sid)
     
     async def on_disconnect(self, sid: str):
@@ -162,18 +162,15 @@ class RealtimeScanner:
         """Broadcast to all connected clients via Socket.IO"""
         if self.sio and self.connected_clients:
             try:
-                # Ensure data is JSON serializable by converting datetime and ObjectId objects
                 json_str = json.dumps(data, default=convert_to_serializable)
                 serializable_data = json.loads(json_str)
                 await self.sio.emit(event, serializable_data)
             except Exception as e:
-                print(f"❌ Broadcast error: {e}")
-                # Try to identify the problematic field
+                print(f" Broadcast error: {e}")
                 try:
                     json.dumps(data, default=convert_to_serializable)
                 except Exception as inner_e:
-                    print(f"❌ JSON serialization error: {inner_e}")
-                    # Print the structure to help debug
+                    print(f" JSON serialization error: {inner_e}")
                     import traceback
                     traceback.print_exc()
     
@@ -225,7 +222,7 @@ class RealtimeScanner:
             return {"message": "Scanner not running", "success": False}
         
         self.is_paused = False
-        print(f"▶️ Scanner resumed - Pending files: {len(self.pending_files)}")
+        print(f" Scanner resumed - Pending files: {len(self.pending_files)}")
         
         # Start the motor when resumed
         encoder_system.start_motor()
@@ -266,62 +263,89 @@ class RealtimeScanner:
         
         return {"message": "Scanner stopped", "success": True}
     
-    def extract_datetime_from_filename(self, filename: str) -> datetime:
+    def parse_filename(self, filename: str) -> Dict:
         """
-        Extract datetime from filename with pattern YYYYMMDD_HHMMSS
-        Examples: 20250222_143015, 20250222-143015, 20250222 143015, 20250123_143017
+        Parse filename to extract frame number, pulse count, position in cm, and timestamp
+        Format: frame_000011pulse6600pos132.00cm_20260305_101530_123456.jpg
+        
+        Returns dict with:
+        - frame_number: int (e.g., 11)
+        - pulse: int (e.g., 6600)
+        - position_cm: float (e.g., 132.00)
+        - timestamp: datetime
+        - microseconds: int (e.g., 123456)
         """
         # Remove file extension
         name_without_ext = Path(filename).stem
         
-        # Pattern for YYYYMMDD_HHMMSS (most common)
-        # This matches: 20250222_143015, 20250222-143015, 20250222 143015
-        patterns = [
-            # Full datetime with separators: YYYYMMDD_HHMMSS, YYYYMMDD-HHMMSS, YYYYMMDD HHMMSS
-            r'(\d{4})[-_]?(\d{2})[-_]?(\d{2})[-_\s]?(\d{2})[-_]?(\d{2})[-_]?(\d{2})',
-            # Just date YYYYMMDD
-            r'(\d{4})[-_]?(\d{2})[-_]?(\d{2})'
-        ]
+        # Pattern: frame_000011pulse6600pos132.00cm_20260305_101530_123456
+        pattern = r'frame_(\d+)pulse(\d+)pos([\d.]+)cm_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})_(\d+)'
         
-        for pattern in patterns:
-            match = re.search(pattern, name_without_ext)
-            if match:
-                groups = match.groups()
-                try:
-                    if len(groups) == 6:  # Full datetime
-                        year, month, day, hour, minute, second = map(int, groups)
-                        # Validate values
-                        if (2000 <= year <= 2100 and 1 <= month <= 12 and 1 <= day <= 31 and
-                            0 <= hour <= 23 and 0 <= minute <= 59 and 0 <= second <= 59):
-                            return datetime(year, month, day, hour, minute, second)
-                    elif len(groups) == 3:  # Just date
-                        year, month, day = map(int, groups)
-                        if (2000 <= year <= 2100 and 1 <= month <= 12 and 1 <= day <= 31):
-                            return datetime(year, month, day, 0, 0, 0)
-                except (ValueError, TypeError) as e:
-                    print(f"⚠️ Error parsing date from {filename}: {e}")
-                    continue
+        match = re.search(pattern, name_without_ext)
+        if match:
+            try:
+                frame_num = int(match.group(1))
+                pulse = int(match.group(2))
+                position_cm = float(match.group(3))
+                year = int(match.group(4))
+                month = int(match.group(5))
+                day = int(match.group(6))
+                hour = int(match.group(7))
+                minute = int(match.group(8))
+                second = int(match.group(9))
+                microseconds = int(match.group(10))
+                
+                # Validate values
+                if (2000 <= year <= 2100 and 1 <= month <= 12 and 1 <= day <= 31 and
+                    0 <= hour <= 23 and 0 <= minute <= 59 and 0 <= second <= 59):
+                    
+                    timestamp = datetime(year, month, day, hour, minute, second)
+                    
+                    return {
+                        "frame_number": frame_num,
+                        "pulse": pulse,
+                        "position_cm": position_cm,
+                        "timestamp": timestamp,
+                        "microseconds": microseconds,
+                        "sort_key": f"{year:04d}{month:02d}{day:02d}{hour:02d}{minute:02d}{second:02d}{microseconds:06d}"
+                    }
+            except (ValueError, TypeError) as e:
+                print(f" Error parsing filename {filename}: {e}")
         
-        # If no pattern matches, fallback to file modification time
+        # Fallback to file modification time
         try:
             file_path = os.path.join(IMAGE_FOLDER, filename)
             if os.path.exists(file_path):
                 mtime = os.path.getmtime(file_path)
-                return datetime.fromtimestamp(mtime)
+                return {
+                    "frame_number": 0,
+                    "pulse": 0,
+                    "position_cm": 0.0,
+                    "timestamp": datetime.fromtimestamp(mtime),
+                    "microseconds": 0,
+                    "sort_key": datetime.fromtimestamp(mtime).strftime("%Y%m%d%H%M%S%f")
+                }
         except:
             pass
         
-        # Last resort: use current time minus a large offset to put it at the end
-        # This ensures files without timestamps are processed last
-        return datetime.now() + timedelta(days=365)
+        # Last resort
+        now = datetime.now()
+        return {
+            "frame_number": 0,
+            "pulse": 0,
+            "position_cm": 0.0,
+            "timestamp": now,
+            "microseconds": 0,
+            "sort_key": now.strftime("%Y%m%d%H%M%S%f")
+        }
     
     def get_image_files(self) -> List[Dict]:
-        """Get all image files from the folder, sorted by timestamp in filename (oldest first)"""
+        """Get all image files from the folder, sorted by timestamp (oldest first)"""
         if not os.path.exists(IMAGE_FOLDER):
             return []
         
         extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.webp'}
-        files_with_time = []
+        files_with_info = []
         
         try:
             for filename in os.listdir(IMAGE_FOLDER):
@@ -330,34 +354,27 @@ class RealtimeScanner:
                     if filename in self.processed_files:
                         continue
                     
-                    # Extract datetime from filename
-                    file_datetime = self.extract_datetime_from_filename(filename)
-                    files_with_time.append({
-                        "filename": filename,
-                        "timestamp": file_datetime
-                    })
+                    # Parse filename for all metadata
+                    file_info = self.parse_filename(filename)
+                    file_info["filename"] = filename
+                    files_with_info.append(file_info)
                     
         except Exception as e:
             print(f"Error reading folder: {e}")
             return []
         
-        # Sort by datetime (oldest first) to process in strict chronological order
-        files_with_time.sort(key=lambda x: x["timestamp"])
+        # Sort by sort_key (chronological order - oldest first)
+        files_with_info.sort(key=lambda x: x["sort_key"])
         
         # Log the sorted order for debugging
-        if files_with_time:
-            print(f"📊 Sorted files by timestamp (oldest first):")
-            for i, item in enumerate(files_with_time[:10]):  # Show first 10
-                print(f"  {i+1}. {item['filename']} -> {item['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}")
-            if len(files_with_time) > 10:
-                print(f"  ... and {len(files_with_time) - 10} more")
+        if files_with_info:
+            print(f" Sorted files by timestamp (oldest first):")
+            for i, item in enumerate(files_with_info[:10]):
+                print(f"  {i+1}. {item['filename']} -> Frame: {item['frame_number']}, Pulse: {item['pulse']}, Pos: {item['position_cm']:.2f}cm, Time: {item['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}.{item['microseconds']}")
+            if len(files_with_info) > 10:
+                print(f"  ... and {len(files_with_info) - 10} more")
         
-        return files_with_time
-    
-    def format_timestamp(self, filename: str) -> str:
-        """Format timestamp from filename for display"""
-        dt = self.extract_datetime_from_filename(filename)
-        return dt.strftime("%Y-%m-%d %H:%M:%S")
+        return files_with_info
     
     async def process_file(self, file_info: Dict):
         """Process a single image file"""
@@ -365,19 +382,27 @@ class RealtimeScanner:
         file_timestamp = file_info["timestamp"].strftime("%Y-%m-%d %H:%M:%S")
         file_path = os.path.join(IMAGE_FOLDER, filename)
         
+        # Extract encoder data for this frame
+        frame_number = file_info.get("frame_number", 0)
+        pulse_count = file_info.get("pulse", 0)
+        position_cm = file_info.get("position_cm", 0.0)
+        
         try:
             self.current_file = filename
             processing_start = time.time()
             
-            # Broadcast processing started
+            # Broadcast processing started with encoder data
             await self.broadcast("processing", {
                 "filename": filename,
+                "frame_number": frame_number,
+                "pulse": pulse_count,
+                "position_cm": position_cm,
                 "timestamp": file_timestamp,
                 "status": "processing",
                 "time": datetime.now().isoformat()
             })
             
-            print(f"🔍 Processing: {filename} (Timestamp: {file_timestamp})")
+            print(f" Processing: {filename} (Frame: {frame_number}, Pulse: {pulse_count}, Pos: {position_cm:.2f}cm)")
             
             # Read file
             with open(file_path, 'rb') as f:
@@ -389,9 +414,12 @@ class RealtimeScanner:
             # Calculate processing time
             processing_time = (time.time() - processing_start) * 1000  # Convert to ms
             
-            # Add metadata
+            # Add metadata including encoder data
             result["timestamp"] = file_timestamp
             result["filename"] = filename
+            result["frame_number"] = frame_number
+            result["pulse_count"] = pulse_count
+            result["position_cm"] = position_cm
             result["processed_at"] = datetime.now().isoformat()
             result["processing_time_ms"] = processing_time
             
@@ -401,14 +429,12 @@ class RealtimeScanner:
             
             # Ensure annotated_image is present and properly formatted
             if "annotated_image" not in result or not result["annotated_image"]:
-                print(f"⚠️ No annotated image in result for {filename}")
-                # Convert image to base64 if needed
+                print(f" No annotated image in result for {filename}")
                 import cv2
                 import numpy as np
                 from PIL import Image
                 import io
                 
-                # Read image and convert to base64
                 img = cv2.imread(file_path)
                 if img is not None:
                     img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -434,14 +460,15 @@ class RealtimeScanner:
             
             self.stats["total_scanned"] += 1
             
-            # Save to MongoDB (detections collection)
+            # Save to MongoDB ONLY if defects detected
             mongo_id = None
-            if self.mongodb:
+            if has_defects and self.mongodb:
                 mongo_id = await self.mongodb.save_detection_result(result)
                 # Convert ObjectId to string
                 result["mongo_id"] = str(mongo_id)
+                print(f" Saved defect frame to DB: {filename} (Pos: {position_cm:.2f}cm, Defects: {len(result.get('defects', []))})")
             
-            # Update statistics in stats collection
+            # Update statistics in stats collection (always update stats regardless of defect status)
             if self.stats_db:
                 await self.stats_db.update_stats(result, processing_time, has_defects)
             
@@ -453,14 +480,12 @@ class RealtimeScanner:
             processed_path = os.path.join(PROCESSED_FOLDER, filename)
             shutil.copy2(dest_path, processed_path)
             
-            # Save metadata
+            # Save metadata (always save metadata file)
             meta_path = os.path.join(PROCESSED_FOLDER, f"{filename}.json")
             with open(meta_path, 'w') as f:
-                # Remove large base64 string from saved JSON to save space
                 meta_result = result.copy()
                 if "annotated_image" in meta_result:
-                    meta_result["annotated_image"] = "[BASE64_IMAGE]"  # Placeholder
-                # Ensure all ObjectIds are converted to strings
+                    meta_result["annotated_image"] = "[BASE64_IMAGE]"
                 json.dump(meta_result, f, indent=2, default=convert_to_serializable)
             
             # Add to processed set
@@ -468,7 +493,7 @@ class RealtimeScanner:
             
             # Log the result
             defect_count = len(result.get('defects', []))
-            print(f"📤 Processed {filename} - Defects: {defect_count} - Classification: {result['classification']} - Timestamp: {file_timestamp} - Time: {processing_time:.2f}ms")
+            print(f" Processed {filename} - Defects: {defect_count} - Classification: {result['classification']} - Pos: {position_cm:.2f}cm - Time: {processing_time:.2f}ms")
             
             # Broadcast result for ALL images (both defect and non-defect)
             await self.broadcast("detection_result", result)
@@ -484,20 +509,25 @@ class RealtimeScanner:
                 self.is_paused = True
                 # Stop the motor when defect detected
                 encoder_system.stop_motor()
+                
+                # Broadcast defect detected with position data
                 await self.broadcast("defect_detected", {
-                    "message": f"Defect detected in {filename} - Scanner paused, motor stopped",
+                    "message": f"Defect detected at {position_cm:.2f}cm - Scanner paused, motor stopped",
                     "filename": filename,
+                    "frame_number": frame_number,
+                    "pulse_count": pulse_count,
+                    "position_cm": position_cm,
                     "defects": result["defects"],
                     "quality": result["quality_assessment"],
                     "timestamp": datetime.now().isoformat(),
                     "stats": current_stats
                 })
-                print(f"⚠️ Defect detected in {filename} - Scanner paused, motor stopped")
+                print(f" Defect detected in {filename} at {position_cm:.2f}cm - Scanner paused, motor stopped")
             
             self.current_file = None
             
         except Exception as e:
-            print(f"❌ Error processing {filename}: {e}")
+            print(f" Error processing {filename}: {e}")
             import traceback
             traceback.print_exc()
             await self.broadcast("error", {
@@ -511,7 +541,7 @@ class RealtimeScanner:
         while self.is_running:
             try:
                 if not self.is_paused:
-                    # Get new files (already sorted by timestamp - oldest first)
+                    # Get new files with parsed info (already sorted by timestamp)
                     new_files = self.get_image_files()
                     
                     if new_files:
@@ -521,11 +551,11 @@ class RealtimeScanner:
                         
                         # Add new files to pending queue in chronological order
                         self.pending_files.extend(truly_new)
-                        # Re-sort the entire queue by timestamp to ensure correct order
-                        self.pending_files.sort(key=lambda x: x["timestamp"])
+                        # Re-sort the entire queue by sort_key to ensure correct order
+                        self.pending_files.sort(key=lambda x: x["sort_key"])
                         
                         if truly_new:
-                            print(f"📁 Found {len(truly_new)} new files to process. Total pending: {len(self.pending_files)}")
+                            print(f" Found {len(truly_new)} new files to process. Total pending: {len(self.pending_files)}")
                         
                         # Process files one by one in chronological order
                         while self.pending_files and self.is_running and not self.is_paused:
@@ -537,7 +567,7 @@ class RealtimeScanner:
                             
                             # If paused due to defect, break out of the loop but keep remaining files in queue
                             if self.is_paused:
-                                print(f"⏸️ Scan paused due to defect. {len(self.pending_files)} files remaining in queue.")
+                                print(f"⏸ Scan paused due to defect. {len(self.pending_files)} files remaining in queue.")
                                 break
                             
                             # Small delay between files to prevent overwhelming the system
@@ -558,7 +588,6 @@ class RealtimeScanner:
                 
                 # Wait before next scan cycle
                 if self.is_paused:
-                    # When paused, check less frequently
                     await asyncio.sleep(1)
                 else:
                     await asyncio.sleep(SCAN_INTERVAL)
@@ -566,7 +595,7 @@ class RealtimeScanner:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                print(f"❌ Scan loop error: {e}")
+                print(f" Scan loop error: {e}")
                 await asyncio.sleep(5)
 
 # Global scanner instance
@@ -581,7 +610,7 @@ async def get_status():
         "is_running": realtime_manager.is_running,
         "is_paused": realtime_manager.is_paused,
         "current_file": realtime_manager.current_file,
-        "pending_files": [f["filename"] for f in realtime_manager.pending_files[:10]],
+        "pending_files": [{"filename": f["filename"], "position_cm": f.get("position_cm", 0)} for f in realtime_manager.pending_files[:10]],
         "pending_count": len(realtime_manager.pending_files),
         "processed_count": len(realtime_manager.processed_files),
         "connected_clients": len(realtime_manager.connected_clients),
@@ -612,7 +641,7 @@ async def stop_scanner():
 
 @realtime_router.get("/history")
 async def get_history(limit: int = 100, skip: int = 0):
-    """Get detection history from MongoDB"""
+    """Get detection history from MongoDB (only defect frames)"""
     try:
         if not realtime_manager.mongodb:
             raise HTTPException(status_code=503, detail="MongoDB not connected")
@@ -668,6 +697,6 @@ async def get_clients():
     """Get connected clients"""
     return {
         "connected_clients": len(realtime_manager.connected_clients),
-        "clients": list(realtime_manager.connected_clients)[:10],  # First 10 only
+        "clients": list(realtime_manager.connected_clients)[:10],
         "timestamp": datetime.now().isoformat()
     }

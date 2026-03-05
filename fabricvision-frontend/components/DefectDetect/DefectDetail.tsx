@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { FiCheckCircle, FiAlertTriangle, FiMapPin, FiBarChart2, FiTarget, FiNavigation, FiActivity } from "react-icons/fi";
+import { FaPencilRuler } from "react-icons/fa";
+import { FiCheckCircle, FiAlertTriangle, FiMapPin, FiBarChart2, FiTarget, FiNavigation, FiActivity, FiZap } from "react-icons/fi";
 
 interface DefectDetailProps {
   apiData?: any;
@@ -16,20 +17,20 @@ const DefectDetail: React.FC<DefectDetailProps> = ({ apiData }) => {
   const [defectCount, setDefectCount] = useState(0);
   const [defectId, setDefectId] = useState<string>("N/A");
   const [summary, setSummary] = useState<any>(null);
+  const [positionCm, setPositionCm] = useState<number | null>(null);
+  const [frameNumber, setFrameNumber] = useState<number | null>(null);
+  const [pulseCount, setPulseCount] = useState<number | null>(null);
 
   useEffect(() => {
     if (apiData) {
-      // Check if there are defects
       const defects = apiData.defects || [];
       setDefectCount(defects.length);
       setHasDefects(defects.length > 0);
       
-      // Set summary if available
       if (apiData.summary) {
         setSummary(apiData.summary);
       }
       
-      // Generate a defect ID
       if (apiData._id) {
         setDefectId(apiData._id.substring(0, 8));
       } else if (defects.length > 0) {
@@ -38,7 +39,10 @@ const DefectDetail: React.FC<DefectDetailProps> = ({ apiData }) => {
         setDefectId("N/A");
       }
       
-      // Set current defect (first defect or default)
+      setPositionCm(apiData.position_cm || null);
+      setFrameNumber(apiData.frame_number || null);
+      setPulseCount(apiData.pulse_count || null);
+      
       if (defects.length > 0) {
         const defect = defects[0];
         setCurrentDefect({
@@ -56,11 +60,13 @@ const DefectDetail: React.FC<DefectDetailProps> = ({ apiData }) => {
         });
       }
     } else {
-      // No data
       setHasDefects(false);
       setDefectCount(0);
       setDefectId("N/A");
       setSummary(null);
+      setPositionCm(null);
+      setFrameNumber(null);
+      setPulseCount(null);
       setCurrentDefect({
         type: "No Data",
         severity: "None",
@@ -82,7 +88,6 @@ const DefectDetail: React.FC<DefectDetailProps> = ({ apiData }) => {
 
   const getConfidenceColor = (confidence: string) => {
     if (!confidence) return 'text-gray-600';
-    // Handle both "95%" and "95" formats
     const percent = parseFloat(confidence);
     if (isNaN(percent)) return 'text-gray-600';
     if (percent >= 90) return 'text-green-600';
@@ -129,6 +134,31 @@ const DefectDetail: React.FC<DefectDetailProps> = ({ apiData }) => {
             : "No Data"}
         </span>
       </div>
+
+      {positionCm && (
+        <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <FaPencilRuler className="w-4 h-4 text-blue-600" />
+              <span className="text-sm text-gray-600">Position:</span>
+              <span className="font-bold text-blue-700">{positionCm.toFixed(2)} cm</span>
+            </div>
+            {frameNumber && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">Frame:</span>
+                <span className="font-medium text-gray-900">{frameNumber}</span>
+              </div>
+            )}
+            {pulseCount && (
+              <div className="flex items-center gap-2">
+                <FiZap className="w-4 h-4 text-purple-600" />
+                <span className="text-sm text-gray-600">Pulse:</span>
+                <span className="font-medium text-gray-900">{pulseCount}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {hasDefects ? (
         <>
@@ -189,7 +219,7 @@ const DefectDetail: React.FC<DefectDetailProps> = ({ apiData }) => {
               <div>
                 <div className="text-sm text-gray-600 mb-1">Fabric Length</div>
                 <div className="font-bold text-gray-900">
-                  {currentDefect.location?.fabricLength || "N/A"}
+                  {positionCm ? `${positionCm.toFixed(2)} cm` : (currentDefect.location?.fabricLength || "N/A")}
                 </div>
               </div>
               <div>
