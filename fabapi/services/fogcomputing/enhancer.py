@@ -67,7 +67,7 @@ def _closest_color(rgb: np.ndarray) -> str:
     return best_color
 
 
-def detect_dominant_colors(bgr: np.ndarray, k: int = 3) -> Dict[str, Any]:
+def detect_dominant_colors(bgr: np.ndarray, k: int = None) -> Dict[str, Any]:
     """
     K-Means based dominant color detection.
     NO fixed thresholds.
