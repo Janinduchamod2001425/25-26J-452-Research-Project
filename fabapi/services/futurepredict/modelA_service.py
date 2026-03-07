@@ -3,6 +3,9 @@ import joblib
 import os
 from tensorflow.keras.models import load_model
 
+from fabapi.database.mongo import modelA_collection
+from datetime import datetime
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 
 MODEL_PATH = os.path.join(BASE_DIR, "models", "modelA_interval_lstm.h5")
@@ -49,7 +52,6 @@ def predict_from_defects(defects, steps=30):
     positions = sequence[:,0]
     defects_enc = sequence[:,2]
 
-    # check defect type consistency
     if len(set(defects_enc)) != 1:
         return []
 
@@ -63,25 +65,15 @@ def predict_from_defects(defects, steps=30):
     REPEAT_THRESHOLD = 1.5
     DRIFT_SLOPE_THRESHOLD = 1.0
 
-    # ----------------------------
-    # Pattern classification
-    # ----------------------------
-
     if std < REPEAT_THRESHOLD and abs(slope) < 0.5:
         pattern_type = "Repeating"
-
     elif abs(slope) > DRIFT_SLOPE_THRESHOLD:
         pattern_type = "Drifting"
-
     else:
         pattern_type = "Drifting"
 
     last_position = int(positions[-1])
     future_positions = []
-
-    # ----------------------------
-    # Repeating pattern
-    # ----------------------------
 
     if pattern_type == "Repeating":
 
@@ -91,42 +83,66 @@ def predict_from_defects(defects, steps=30):
             last_position += mean_interval
             future_positions.append(last_position)
 
-        return future_positions
+    else:
 
-    # ----------------------------
-    # LSTM prediction
-    # ----------------------------
+        seq_scaled = scaler.transform(sequence)
 
-    seq_scaled = scaler.transform(sequence)
+        current = seq_scaled.reshape(1, WINDOW, -1)
 
-    current = seq_scaled.reshape(1, WINDOW, -1)
+        for _ in range(steps):
 
-    for _ in range(steps):
+            pred_interval_scaled = model.predict(current, verbose=0)[0][0]
 
-        pred_interval_scaled = model.predict(current, verbose=0)[0][0]
+            dummy = np.zeros((1,3))
+            dummy[0,1] = pred_interval_scaled
 
-        dummy = np.zeros((1,3))
-        dummy[0,1] = pred_interval_scaled
+            interval_real = scaler.inverse_transform(dummy)[0,1]
+            interval_real = max(1, int(round(interval_real)))
 
-        interval_real = scaler.inverse_transform(dummy)[0,1]
-        interval_real = max(1, int(round(interval_real)))
+            last_position += interval_real
+            future_positions.append(last_position)
 
-        last_position += interval_real
-        future_positions.append(last_position)
+            new_row = current[0,-1].copy()
 
-        new_row = current[0,-1].copy()
+            dummy2 = np.zeros((1,3))
+            dummy2[0,0] = last_position
 
-        dummy2 = np.zeros((1,3))
-        dummy2[0,0] = last_position
+            pos_scaled = scaler.transform(dummy2)[0,0]
 
-        pos_scaled = scaler.transform(dummy2)[0,0]
+            new_row[0] = pos_scaled
+            new_row[1] = pred_interval_scaled
 
-        new_row[0] = pos_scaled
-        new_row[1] = pred_interval_scaled
+            current = np.concatenate(
+                [current[:,1:,:], new_row.reshape(1,1,-1)],
+                axis=1
+            )
 
-        current = np.concatenate(
-            [current[:,1:,:], new_row.reshape(1,1,-1)],
-            axis=1
-        )
+    # -----------------------------
+    # SAVE MODEL A OUTPUTS
+    # -----------------------------
+
+    doc = {
+
+        "defect_type": defects[0].defect_type,
+
+        "sequence": [
+            {
+                "position_cm": d.position_cm,
+                "timestamp": d.timestamp
+            }
+            for d in defects
+        ],
+
+        "predicted_positions": future_positions,
+
+        "pattern": pattern_type,
+
+        "mean_interval": float(mean_interval),
+
+        "created_at": datetime.utcnow()
+
+    }
+
+    modelA_collection.insert_one(doc)
 
     return future_positions
