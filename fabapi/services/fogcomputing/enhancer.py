@@ -39,27 +39,56 @@ def bgr_to_jpeg_bytes(bgr: np.ndarray, quality: int = 92) -> bytes:
 # 🔵 COLOR IDENTIFICATION (ADDED – DOES NOT affect enhancement)
 # =========================================================
 
-COLOR_PROTOTYPES = {
-    "red":      np.array([220, 30, 30]),
-    "green":    np.array([30, 160, 60]),
-    "blue":     np.array([30, 60, 200]),
-    "yellow":   np.array([230, 200, 40]),
-    "orange":   np.array([240, 140, 40]),
-    "purple":   np.array([140, 60, 160]),
-    "pink":     np.array([230, 120, 160]),
-    "brown":    np.array([150, 100, 50]),
-    "white":    np.array([240, 240, 240]),
-    "black":    np.array([20, 20, 20]),
-    "gray":     np.array([130, 130, 130]),
+# =========================================================
+# COLOR IDENTIFICATION (PATTERN-ROBUST VERSION)
+# =========================================================
+
+import numpy as np
+import cv2
+from collections import defaultdict
+
+
+# =========================================================
+# Color prototypes (RGB)
+# =========================================================
+
+COLOR_PROTOTYPES_RGB = {
+    "red": np.array([200, 30, 30], dtype=np.uint8),
+    "green": np.array([40, 150, 60], dtype=np.uint8),
+    "blue": np.array([40, 70, 200], dtype=np.uint8),
+    "orange": np.array([255, 120, 0], dtype=np.uint8),
+    "yellow": np.array([255, 210, 60], dtype=np.uint8),
+    "purple": np.array([150, 60, 170], dtype=np.uint8),
+    "pink": np.array([240, 120, 170], dtype=np.uint8),
+    "brown": np.array([130, 80, 40], dtype=np.uint8),
+    "white": np.array([255, 255, 255], dtype=np.uint8),
+    "black": np.array([10, 10, 10], dtype=np.uint8),
+    "gray": np.array([180, 180, 180], dtype=np.uint8),
 }
 
 
-def _closest_color(rgb: np.ndarray) -> str:
+def _rgb_to_lab(rgb):
+    rgb_img = rgb.reshape(1, 1, 3)
+    bgr_img = cv2.cvtColor(rgb_img, cv2.COLOR_RGB2BGR)
+    lab_img = cv2.cvtColor(bgr_img, cv2.COLOR_BGR2LAB)
+    return lab_img.reshape(3).astype(np.float32)
+
+
+COLOR_PROTOTYPES_LAB = {
+    name: _rgb_to_lab(rgb)
+    for name, rgb in COLOR_PROTOTYPES_RGB.items()
+}
+
+
+def _closest_color_lab(lab_pixel):
+
     min_dist = float("inf")
     best_color = "unknown"
 
-    for name, ref in COLOR_PROTOTYPES.items():
-        dist = np.linalg.norm(rgb - ref)
+    for name, ref in COLOR_PROTOTYPES_LAB.items():
+
+        dist = np.linalg.norm(lab_pixel - ref)
+
         if dist < min_dist:
             min_dist = dist
             best_color = name
@@ -67,61 +96,156 @@ def _closest_color(rgb: np.ndarray) -> str:
     return best_color
 
 
-def detect_dominant_colors(bgr: np.ndarray, k: int = None) -> Dict[str, Any]:
-    """
-    K-Means based dominant color detection.
-    NO fixed thresholds.
-    """
-    small = cv2.resize(bgr, (150, 150))
-    pixels = small.reshape((-1, 3)).astype(np.float32)
+# =========================================================
+# ROI Crop
+# =========================================================
 
-    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 20, 1.0)
-    _, labels, centers = cv2.kmeans(
-        pixels, k, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS
+def _center_roi_bgr(bgr, scale=0.6):
+
+    h, w = bgr.shape[:2]
+
+    rh = int(h * scale)
+    rw = int(w * scale)
+
+    y1 = (h - rh) // 2
+    x1 = (w - rw) // 2
+
+    return bgr[y1:y1 + rh, x1:x1 + rw]
+
+
+# =========================================================
+# KMeans helpers
+# =========================================================
+
+def _kmeans_lab(pixels_lab, k):
+
+    criteria = (
+        cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER,
+        20,
+        1.0,
     )
 
+    compactness, labels, centers = cv2.kmeans(
+        pixels_lab,
+        k,
+        None,
+        criteria,
+        8,
+        cv2.KMEANS_RANDOM_CENTERS,
+    )
+
+    return compactness, labels, centers
+
+
+def _choose_k_dynamic(pixels_lab, k_min=2, k_max=5):
+
+    inertias = []
+    ks = list(range(k_min, k_max + 1))
+
+    if pixels_lab.shape[0] < 50:
+        return 2
+
+    for k in ks:
+
+        inertia, _, _ = _kmeans_lab(pixels_lab, k)
+
+        inertias.append(inertia)
+
+    improvements = []
+
+    for i in range(1, len(inertias)):
+
+        prev_i = inertias[i - 1]
+        curr_i = inertias[i]
+
+        imp = (prev_i - curr_i) / (prev_i + 1e-12)
+
+        improvements.append(imp)
+
+    best_index = int(np.argmax(improvements))
+
+    return ks[best_index + 1]
+
+
+# =========================================================
+# MAIN COLOR DETECTION
+# =========================================================
+
+def detect_dominant_colors(bgr):
+
+    # 1️⃣ center ROI
+    roi = _center_roi_bgr(bgr, scale=0.6)
+
+    # 2️⃣ downscale
+    small = cv2.resize(roi, (150, 150), interpolation=cv2.INTER_AREA)
+
+    # 3️⃣ remove textile texture noise
+    small = cv2.medianBlur(small, 7)
+
+    # 4️⃣ merge pattern edges
+    small = cv2.GaussianBlur(small, (9, 9), 0)
+
+    # 5️⃣ convert to LAB
+    lab = cv2.cvtColor(small, cv2.COLOR_BGR2LAB)
+
+    pixels_lab = lab.reshape((-1, 3)).astype(np.float32)
+
+    # 6️⃣ random pixel sampling (improves patterned fabrics)
+    if len(pixels_lab) > 3000:
+
+        idx = np.random.choice(len(pixels_lab), 3000, replace=False)
+
+        pixels_lab = pixels_lab[idx]
+
+    # 7️⃣ choose number of clusters
+    k = min(_choose_k_dynamic(pixels_lab), 4)
+
+    # 8️⃣ run KMeans
+    _, labels, centers = _kmeans_lab(pixels_lab, k)
+
     counts = np.bincount(labels.flatten())
+
     sorted_idx = np.argsort(counts)[::-1]
 
-    total_pixels = len(pixels)
-    color_results = []
-
-    for idx in sorted_idx:
-        center_bgr = centers[idx]
-        center_rgb = center_bgr[::-1]
-        color_name = _closest_color(center_rgb)
-        ratio = float(counts[idx] / total_pixels)
-
-        # color_results.append({
-        #     "color": color_name,
-        #     "ratio": ratio
-        # })
+    total_pixels = float(len(pixels_lab))
 
     color_accumulator = defaultdict(float)
 
+    # 9️⃣ map clusters to named colors
     for idx in sorted_idx:
-            center_bgr = centers[idx]
-            center_rgb = center_bgr[::-1]
-            color_name = _closest_color(center_rgb)
-            ratio = float(counts[idx] / total_pixels)
 
-            color_accumulator[color_name] += ratio
+        center = centers[idx]
 
-        # convert to sorted list
+        color_name = _closest_color_lab(center)
+
+        ratio = counts[idx] / total_pixels
+
+        color_accumulator[color_name] += ratio
+
+    # 10️⃣ convert to sorted list
     color_results = [
-            {"color": c, "ratio": r}
-            for c, r in color_accumulator.items()
-        ]
+        {"color": c, "ratio": float(r)}
+        for c, r in color_accumulator.items()
+    ]
 
-    color_results = sorted(color_results, key=lambda x: x["ratio"], reverse=True)
+    color_results = sorted(
+        color_results,
+        key=lambda x: x["ratio"],
+        reverse=True
+    )
 
     dominant = color_results[0]["color"] if color_results else "unknown"
-    secondary = color_results[1]["color"] if len(color_results) > 1 else None
+
+    secondary = (
+        color_results[1]["color"]
+        if len(color_results) > 1
+        else None
+    )
 
     return {
         "dominant_color": dominant,
         "secondary_color": secondary,
-        "distribution": color_results
+        "distribution": color_results,
     }
 
 
