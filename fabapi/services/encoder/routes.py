@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 from datetime import datetime
 from fabapi.services.encoder.encoder_logic import encoder_system, init_encoder
+from typing import Optional
 
 # Create router
 encoder_router = APIRouter(prefix="/encoder", tags=["encoder"])
@@ -87,3 +88,12 @@ async def calibrate(wheel_diameter: float = None, ppr: int = None):
         return JSONResponse(content=result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error calibrating: {str(e)}")
+
+@encoder_router.get("/fabric-state")
+async def get_fabric_state():
+    """Get the latest fabric detection state"""
+    try:
+        fabric_state = encoder_system.get_fabric_state()
+        return JSONResponse(content=fabric_state)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting fabric state: {str(e)}")

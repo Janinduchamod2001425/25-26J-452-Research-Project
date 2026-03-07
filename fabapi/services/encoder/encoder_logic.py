@@ -9,16 +9,24 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 import asyncio
 from collections import deque
+from pathlib import Path
+import os
 
 # ================= SETTINGS =================
 SERIAL_PORT = 'COM3'  # Change this to your actual COM port
 BAUD_RATE = 115200
-PPR = 500  # Pulses per revolution
-WHEEL_DIAMETER = 5.0  # in cm
+PPR = 1200  # Pulses per revolution
+WHEEL_DIAMETER = 3.8  # in cm
 CIRCUMFERENCE = math.pi * WHEEL_DIAMETER  # in cm
 STOP_TIMEOUT = 2.0  # seconds without pulse = stopped
 HISTORY_SIZE = 200  # Number of pulse points to keep for chart
 PULSE_SAMPLE_INTERVAL = 0.1  # seconds between pulse rate samples
+
+# ==========================================================
+# SAVE DIRECTORY FOR FABRIC IMAGES
+# ==========================================================
+SAVE_DIR = Path(r"E:\fabric_images\input")
+SAVE_DIR.mkdir(parents=True, exist_ok=True)
 
 class FabricEncoder:
     def __init__(self):
@@ -41,6 +49,21 @@ class FabricEncoder:
             "serial_connected": False,
             "available_ports": [],
             "motor_on": True  # Track motor state
+        }
+        # ==========================================================
+        # FABRIC STATE (from receiver.py)
+        # ==========================================================
+        self.fabric_state = {
+            "pattern": None,
+            "pattern_type": None,
+            "dominant_color": None,
+            "secondary_color": None,
+            "quality_score": None,
+            "enhancement_mode": None,
+            "frames_processed": 0,
+            "fps": 0,
+            "last_update": None,
+            "last_image_saved": None
         }
         self.last_pulse_time = time.time()
         self.last_pulse_count = 0
@@ -103,6 +126,52 @@ class FabricEncoder:
     def start_motor(self):
         """Start the motor"""
         return self.send_command('1')
+    # ==========================================================
+    # FABRIC STATE METHODS (from receiver.py)
+    # ==========================================================
+    
+    def get_safe_filename(self, filename):
+        """Keep original filename but remove unsafe path parts."""
+        return os.path.basename(filename)
+    
+    def update_fabric_state(self, fabric_data):
+        """Update fabric detection state"""
+        with self.lock:
+            self.fabric_state["pattern"] = fabric_data.get("pattern")
+            self.fabric_state["pattern_type"] = fabric_data.get("pattern_type")
+            self.fabric_state["dominant_color"] = fabric_data.get("dominant_color")
+            self.fabric_state["secondary_color"] = fabric_data.get("secondary_color")
+            self.fabric_state["quality_score"] = fabric_data.get("quality_score")
+            self.fabric_state["enhancement_mode"] = fabric_data.get("enhancement_mode")
+            self.fabric_state["frames_processed"] = fabric_data.get("frames_processed", 0)
+            self.fabric_state["fps"] = fabric_data.get("fps", 0)
+            self.fabric_state["last_update"] = time.time()
+            self.fabric_state["last_image_saved"] = fabric_data.get("saved_filename")
+            
+            # Also add to main data for easy access
+            self.data["fabric_pattern"] = fabric_data.get("pattern")
+            self.data["fabric_quality"] = fabric_data.get("quality_score")
+    
+    def get_fabric_state(self):
+        """Get current fabric detection state"""
+        with self.lock:
+            # Add timestamp
+            state_copy = self.fabric_state.copy()
+            if state_copy["last_update"]:
+                state_copy["last_update_str"] = time.strftime("%H:%M:%S", 
+                                                             time.localtime(state_copy["last_update"]))
+            return state_copy
+    
+    def save_enhanced_frame(self, file, frame_name, timestamp=""):
+        """Save enhanced frame to disk"""
+        try:
+            safe_name = self.get_safe_filename(frame_name)
+            save_path = SAVE_DIR / safe_name
+            file.save(str(save_path))
+            return True, safe_name, str(save_path)
+        except Exception as e:
+            print(f"Error saving frame: {e}")
+            return False, None, None
 
     def _get_available_ports(self):
         """Get list of available serial ports"""
@@ -116,7 +185,7 @@ class FabricEncoder:
                     "hwid": port.hwid
                 })
         except Exception as e:
-            print(f"⚠️ Error listing ports: {e}")
+            print(f" Error listing ports: {e}")
         return ports
 
     def _run_serial_reader(self):
@@ -147,7 +216,7 @@ class FabricEncoder:
                                 pass
                             self.ser = None
                         
-                        print(f"🔄 Attempting to connect to {SERIAL_PORT}...")
+                        print(f" Attempting to connect to {SERIAL_PORT}...")
                         
                         # Open serial port with standard parameters
                         self.ser = serial.Serial(
@@ -161,7 +230,7 @@ class FabricEncoder:
                         with self.lock:
                             self.data["status"] = f"Connected to {SERIAL_PORT}"
                             self.data["serial_connected"] = True
-                        print(f"✅ Encoder connected to {SERIAL_PORT}")
+                        print(f" Encoder connected to {SERIAL_PORT}")
                         
                     except serial.SerialException as e:
                         self.serial_connected = False
@@ -169,13 +238,13 @@ class FabricEncoder:
                         
                         # Update status based on error
                         if "Access is denied" in error_msg or "PermissionError" in error_msg:
-                            status_msg = f"⚠️ Port {SERIAL_PORT} is in use by another program"
+                            status_msg = f" Port {SERIAL_PORT} is in use by another program"
                             if "exclusive access" in error_msg.lower():
-                                status_msg = f"⚠️ Port {SERIAL_PORT} is busy (exclusive access)"
+                                status_msg = f" Port {SERIAL_PORT} is busy (exclusive access)"
                         elif "does not exist" in error_msg.lower():
-                            status_msg = f"❌ Port {SERIAL_PORT} does not exist"
+                            status_msg = f" Port {SERIAL_PORT} does not exist"
                         else:
-                            status_msg = f"⚠️ Error: {error_msg[:50]}..."
+                            status_msg = f" Error: {error_msg[:50]}..."
                         
                         with self.lock:
                             self.data["status"] = status_msg
@@ -202,7 +271,7 @@ class FabricEncoder:
                                         count = int(numbers[0])
                                         self._process_pulse_count(count)
                                 except Exception as e:
-                                    print(f"⚠️ Error parsing pulse: {e}")
+                                    print(f" Error parsing pulse: {e}")
                             
                             # Also check for any numeric data
                             else:
@@ -214,7 +283,7 @@ class FabricEncoder:
                                     pass  # Not a number, ignore
                     
                     except serial.SerialException as e:
-                        print(f"❌ Serial read error: {e}")
+                        print(f" Serial read error: {e}")
                         self.serial_connected = False
                         with self.lock:
                             self.data["status"] = f"Read error: {e}"
@@ -227,7 +296,7 @@ class FabricEncoder:
                 time.sleep(0.01)
 
             except Exception as e:
-                print(f"❌ Serial reader error: {e}")
+                print(f" Serial reader error: {e}")
                 self.serial_connected = False
                 with self.lock:
                     self.data["status"] = f"Error: {str(e)[:50]}"
@@ -325,7 +394,7 @@ class FabricEncoder:
                         loop
                     )
             except Exception as e:
-                print(f"⚠️ Socket emit error: {e}")
+                print(f" Socket emit error: {e}")
 
     async def _emit_update(self):
         """Emit encoder update via Socket.IO"""
@@ -333,7 +402,7 @@ class FabricEncoder:
             try:
                 await self.socketio.emit("encoder_update", self.get_status())
             except Exception as e:
-                print(f"❌ Socket.IO emit error: {e}")
+                print(f" Socket.IO emit error: {e}")
 
     def get_status(self) -> Dict[str, Any]:
         """Get complete encoder status"""
@@ -449,15 +518,15 @@ class FabricEncoder:
                 pass
         if hasattr(self, 'thread') and self.thread.is_alive():
             self.thread.join(timeout=2)
-        print("✅ Encoder system shutdown")
+        print(" Encoder system shutdown")
 
 # Global encoder instance
 encoder_system = FabricEncoder()
 
 def init_encoder():
     """Initialize the encoder system"""
-    print("🚀 Encoder system initialized")
-    print("🔌 Available serial ports:")
+    print(" Encoder system initialized")
+    print("Available serial ports:")
     ports = encoder_system._get_available_ports()
     for port in ports:
         print(f"   - {port['device']}: {port['description']}")
