@@ -91,7 +91,7 @@ app.include_router(fog_router)
 # ===============================
 app.include_router(defect_router)
 app.include_router(realtime_router)
-app.include_router(encoder_router) 
+#app.include_router(encoder_router) 
 
 # ===============================
 # defects prediction Routers (Duvidu)
@@ -117,150 +117,6 @@ encoder_system.set_socket(sio)
 # ==========================================================
 # ROOT-LEVEL ENDPOINTS 
 # ==========================================================
-SAVE_DIR = Path(r"E:\fabric_images\input")
-SAVE_DIR.mkdir(parents=True, exist_ok=True)
-
-@app.post("/receive-enhanced-frame")
-async def receive_enhanced_frame_root(
-    file: UploadFile = File(...),
-    frame_name: str = Form(...),
-    timestamp: str = Form(""),
-    pattern: Optional[str] = Form(None),
-    pattern_type: Optional[str] = Form(None),
-    dominant_color: Optional[str] = Form(None),
-    secondary_color: Optional[str] = Form(None),
-    quality_score: Optional[str] = Form(None),
-    enhancement_mode: Optional[str] = Form(None),
-    frames_processed: Optional[str] = Form(None),
-    fps: Optional[str] = Form(None)
-):
-    """
-    Receive enhanced frame from component 2 with metadata
-    Saves the file and updates state (matches Flask version)
-    """
-    try:
-        # Get filename safely
-        safe_name = encoder_system.get_safe_filename(frame_name)
-        
-        # SAVE THE FILE (FIX: Added this line)
-        save_path = SAVE_DIR / safe_name
-        contents = await file.read()
-        with open(save_path, "wb") as f:
-            f.write(contents)
-        
-        # Update fabric state with received metadata
-        fabric_data = {
-            "pattern": pattern,
-            "pattern_type": pattern_type,
-            "dominant_color": dominant_color,
-            "secondary_color": secondary_color,
-            "quality_score": quality_score,
-            "enhancement_mode": enhancement_mode,
-            "frames_processed": int(frames_processed) if frames_processed else 0,
-            "fps": float(fps) if fps else 0,
-            "last_filename": safe_name,
-            "timestamp": timestamp,
-            "saved_filename": str(save_path)  # Add saved path
-        }
-        
-        encoder_system.update_fabric_state(fabric_data)
-        
-        # Debug log
-        print("\n===== FRAME RECEIVED =====")
-        print("Saved:", save_path)
-        print("Filename:", safe_name)
-        print("Pattern:", pattern)
-        print("Pattern Type:", pattern_type)
-        print("Dominant Color:", dominant_color)
-        print("Secondary Color:", secondary_color)
-        print("Quality Score:", quality_score)
-        print("Enhancement Mode:", enhancement_mode)
-        print("Frames Processed:", frames_processed)
-        print("FPS:", fps)
-        
-        return JSONResponse(content={
-            "status": "success",
-            "filename": safe_name,
-            "saved_path": str(save_path)
-        }, status_code=200)
-        
-    except Exception as e:
-        print("Receiver error:", e)
-        raise HTTPException(status_code=500, detail=str(e))
-    
-@app.get("/api/fabric-state")
-async def http_fabric_state():
-    """Get latest fabric detection state via HTTP"""
-    try:
-        return JSONResponse(content=encoder_system.get_fabric_state())
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/motor/stop")
-async def http_motor_stop_post():
-    """Stop the motor via HTTP POST"""
-    try:
-        print(f" Motor STOP requested via POST")
-        success = encoder_system.stop_motor()
-        return JSONResponse(content={
-            "success": success,
-            "message": "Motor Stopped"
-        })
-    except Exception as e:
-        print(f" Error in motor stop POST: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/motor/stop")
-async def http_motor_stop_get():
-    """Stop the motor via HTTP GET (for browser compatibility)"""
-    try:
-        print(f" Motor STOP requested via GET")
-        success = encoder_system.stop_motor()
-        return JSONResponse(content={
-            "success": success,
-            "message": "Motor Stopped"
-        })
-    except Exception as e:
-        print(f" Error in motor stop GET: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/motor/start")
-async def http_motor_start_post():
-    """Start the motor via HTTP POST"""
-    try:
-        print(f" Motor START requested via POST")
-        success = encoder_system.start_motor()
-        return JSONResponse(content={
-            "success": success,
-            "message": "Motor Started"
-        })
-    except Exception as e:
-        print(f" Error in motor start POST: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/motor/start")
-async def http_motor_start_get():
-    """Start the motor via HTTP GET (for browser compatibility)"""
-    try:
-        print(f"Motor START requested via GET")
-        success = encoder_system.start_motor()
-        return JSONResponse(content={
-            "success": success,
-            "message": "Motor Started"
-        })
-    except Exception as e:
-        print(f"Error in motor start GET: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/api/pulse-count")
-async def http_pulse_count():
-    """Simple endpoint that returns just the current pulse count"""
-    try:
-        return str(encoder_system.data["pulses"])
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 
 # Startup event
 @app.on_event("startup")
@@ -275,14 +131,13 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     await realtime_manager.shutdown()
-    encoder_system.shutdown()
-    print(" Server shutdown complete")
+    print("Server shutdown complete")
 
 # Socket.IO event handlers
 @sio.event
 async def connect(sid, environ, auth=None):
     """Handle client connection"""
-    print(f" Client connected: {sid}")
+    print(f"Client connected: {sid}")
     await realtime_manager.on_connect(sid)
     
     # Send initial status
@@ -321,92 +176,10 @@ async def ping(sid, data=None):
     }, room=sid)
 
 # ============ ENCODER SOCKET.IO HANDLERS ============
-@sio.event
-async def get_encoder_status(sid, data=None):
-    """Client requested encoder status"""
-    try:
-        status = encoder_system.get_status()
-        await sio.emit('encoder_update', status, room=sid)
-        print(f" Sent encoder status to {sid}")
-    except Exception as e:
-        print(f" Error in get_encoder_status: {e}")
 
-@sio.event
-async def get_encoder_history(sid, data=None):
-    """Client requested encoder history"""
-    try:
-        limit = data.get('limit', 100) if data else 100
-        history = encoder_system.get_history(limit)
-        await sio.emit('encoder_history', {
-            'success': True,
-            'history': history
-        }, room=sid)
-        print(f" Sent encoder history ({len(history)} points) to {sid}")
-    except Exception as e:
-        print(f" Error in get_encoder_history: {e}")
-        await sio.emit('encoder_history', {
-            'success': False,
-            'error': str(e)
-        }, room=sid)
-
-@sio.event
-async def reset_encoder(sid, data=None):
-    """Client requested encoder reset"""
-    try:
-        encoder_system.reset_counter()
-        await sio.emit('encoder_update', encoder_system.get_status(), room=sid)
-        await sio.emit('encoder_reset_response', {
-            'success': True,
-            'message': 'Encoder reset successful'
-        }, room=sid)
-        print(f" Encoder reset by {sid}")
-    except Exception as e:
-        print(f" Error resetting encoder: {e}")
-        await sio.emit('encoder_reset_response', {
-            'success': False,
-            'error': str(e)
-        }, room=sid)
         
-@sio.event
-async def get_fabric_state(sid, data=None):
-    """Client requested fabric detection state"""
-    try:
-        fabric_state = encoder_system.get_fabric_state()
-        await sio.emit('fabric_state_update', fabric_state, room=sid)
-        print(f" Sent fabric state to {sid}")
-    except Exception as e:
-        print(f" Error in get_fabric_state: {e}")
-
 # ============ MOTOR CONTROL HANDLERS ============
-@sio.event
-async def motor_start(sid, data=None):
-    """Start the motor"""
-    try:
-        print(f" Client {sid} requested motor start")
-        success = encoder_system.start_motor()
-        await sio.emit('motor_response', {
-            'success': success,
-            'action': 'start',
-            'message': 'Motor started' if success else 'Failed to start motor',
-            'timestamp': datetime.now().isoformat()
-        }, room=sid)
-    except Exception as e:
-        print(f" Error in motor_start: {e}")
 
-@sio.event
-async def motor_stop(sid, data=None):
-    """Stop the motor"""
-    try:
-        print(f" Client {sid} requested motor stop")
-        success = encoder_system.stop_motor()
-        await sio.emit('motor_response', {
-            'success': success,
-            'action': 'stop',
-            'message': 'Motor stopped' if success else 'Failed to stop motor',
-            'timestamp': datetime.now().isoformat()
-        }, room=sid)
-    except Exception as e:
-        print(f" Error in motor_stop: {e}")
         
 # ============ SCANNER CONTROL HANDLERS ============
 @sio.event
@@ -510,12 +283,12 @@ async def get_history(sid, data=None):
                 'error': 'MongoDB not connected'
             }, room=sid)
     except Exception as e:
-        print(f"Error in get_history: {e}")
+        print(f" Error in get_history: {e}")
         await sio.emit('history_response', {
             'success': False,
             'error': str(e)
         }, room=sid)
-        
+
 # Regular HTTP endpoints
 @app.get("/health")
 async def health_check():
@@ -572,7 +345,7 @@ async def api_stats():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
+
 @app.get("/socket-test")
 async def socket_test():
     """Test Socket.IO connection"""
@@ -582,10 +355,11 @@ async def socket_test():
         "clients": len(realtime_manager.connected_clients),
         "status": "active"
     }
+    
 
-# ===============================
-# ERROR HANDLER 
-# ===============================
+
+
+# Error handlers
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
     return JSONResponse(
@@ -596,6 +370,7 @@ async def http_exception_handler(request, exc):
             "status_code": exc.status_code
         }
     )
+
 @app.exception_handler(Exception)
 async def general_exception_handler(request, exc):
     return JSONResponse(
@@ -607,15 +382,11 @@ async def general_exception_handler(request, exc):
         }
     )
 
-# ===============================
-# MAIN RUN
-# ===============================
 if __name__ == "__main__":
-    import uvicorn
     uvicorn.run(
         socket_app,
         host="0.0.0.0",
-        port=8000,
+        port=5000,
         reload=True,
         log_level="info"
     )
