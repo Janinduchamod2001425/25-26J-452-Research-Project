@@ -1,23 +1,30 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import List
-from .modelA_service import predict_next_positions
+from .modelA_service import predict_from_defects
 
 router = APIRouter(
     prefix="/modelA",
     tags=["Model A – Future Prediction"]
 )
 
+class DefectRecord(BaseModel):
+    defect_type: str
+    position_cm: float
+    timestamp: str
+
 class ModelARequest(BaseModel):
-    sequence: List[List[float]]  # last 10 timesteps
-    steps: int = 10
+    defects: List[DefectRecord]
+    steps: int = 30
+
 
 @router.post("/predict")
 def modelA_predict(req: ModelARequest):
-    positions = predict_next_positions(req.sequence, req.steps)
+
+    predictions = predict_from_defects(req.defects, req.steps)
 
     return {
         "success": True,
-        "next_positions_m": positions,
-        "message": "MODEL A prediction successful"
+        "next_positions_cm": predictions,
+        "steps": req.steps
     }
