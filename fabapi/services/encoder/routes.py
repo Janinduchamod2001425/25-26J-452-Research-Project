@@ -10,7 +10,7 @@ from typing import Optional
 encoder_router = APIRouter(prefix="/encoder", tags=["encoder"])
 
 # Initialize encoder on module load
-init_encoder()
+#init_encoder()
 
 @encoder_router.get("/")
 async def root():
