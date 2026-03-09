@@ -2,70 +2,96 @@
 
 import React from "react";
 import { useModelBAnalytics } from "@/hooks/useModelBAnalytics";
-import RollFeatureInputPanel from "@/components/futureDefects/RollFeatureInputPanel";
+import SupplierInputPanel from "@/components/futureDefects/SupplierInputPanel";
 import ShapContributionPanel from "@/components/futureDefects/ShapContributionPanel";
 import ShapSummaryImage from "@/components/futureDefects/ShapSummaryImage";
 
-import { FiTrendingUp, FiAlertTriangle } from "react-icons/fi";
-
 const ModelBRiskAnalytics = () => {
+
   const { data, loading, error, predict } = useModelBAnalytics();
 
   return (
     <div className="space-y-6">
+
       <h2 className="text-2xl font-bold">
         MODEL B — Risk & RCA Analytics
       </h2>
 
-      {/* 🔹 INPUT PANEL */}
-      <RollFeatureInputPanel onSubmit={predict} />
+      {/* Supplier input */}
+      <SupplierInputPanel onSubmit={predict} />
 
-      {loading && <p className="text-gray-500">Analyzing risk...</p>}
-      {error && <p className="text-red-600">{error}</p>}
+      {loading && (
+        <p className="text-gray-500">Analyzing supplier risk...</p>
+      )}
+
+      {error && (
+        <p className="text-red-600">{error}</p>
+      )}
 
       {data && (
-        <>
-          {/* METRICS */}
-          <div className="grid grid-cols-3 gap-4">
-            <Metric
-              title="Risk Score"
-              value={data.risk_score.toFixed(2)}
-              icon={FiTrendingUp}
-            />
-            <Metric
-              title="Pattern Class"
-              value={mapPattern(data.pattern_class)}
-            />
-            <Metric
-              title="Root Cause"
-              value={mapRCA(data.rca_class)}
-              icon={FiAlertTriangle}
-            />
-          </div>
 
-          {/* EXPLAINABILITY */}
-          <ShapContributionPanel risk={data.risk_score} />
-          <ShapSummaryImage />
+        <>
+        
+        {/* Metrics */}
+        <div className="grid grid-cols-3 gap-4">
+
+          <Metric
+            title="Supplier Risk Score"
+            value={data.supplier_risk_score.toFixed(3)}
+          />
+
+          <Metric
+            title="Roll Risk Score"
+            value={`${(data.roll_risk_score*100).toFixed(1)} %`}
+          />
+
+          <Metric
+            title="Root Cause"
+            value={mapRCA(data.root_cause_class)}
+          />
+
+        </div>
+
+        {/* Explainability */}
+        <ShapContributionPanel risk={data.roll_risk_score} />
+
+        <ShapSummaryImage />
+
         </>
+
       )}
+
     </div>
   );
 };
 
-const Metric = ({ title, value, icon: Icon }: any) => (
-  <div className="bg-white p-6 rounded-xl border">
-    <div className="flex items-center gap-2 text-sm text-gray-600">
-      {Icon && <Icon className="text-indigo-600" />}
-      {title}
-    </div>
+const Metric = ({ title, value }: any) => (
+
+  <div className="bg-white p-6 rounded-xl border shadow-sm">
+
+    <p className="text-sm text-gray-500">{title}</p>
+
     <p className="text-2xl font-bold">{value}</p>
+
   </div>
+
 );
 
-const mapPattern = (c: number) =>
-  c === 0 ? "Repeating" : c === 1 ? "Drifting" : "Irregular";
-
-const mapRCA = (c: number) =>
-  c === 0 ? "Material Issue" : c === 1 ? "Machine Issue" : "Operator Issue";
+const mapRCA = (c: number) => {
+  switch (c) {
+    case 0:
+      return "Supplier Quality Issue";
+    case 1:
+      return "Pattern Repetition Issue";
+    case 2:
+      return "Fabric Structure Weakness";
+    case 3:
+      return "High Defect Density";
+    case 4:
+      return "Random Defect Occurrence";
+    default:
+      return "Unknown";
+  }
+};
 
 export default ModelBRiskAnalytics;
