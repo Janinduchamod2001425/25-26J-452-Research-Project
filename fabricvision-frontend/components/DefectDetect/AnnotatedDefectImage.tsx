@@ -1,8 +1,9 @@
 "use client";
 
 import { defectData } from "@/data/defectData";
-import { FiMaximize2, FiDownload, FiCamera, FiPlay, FiPause, FiClock, FiZap, FiTarget, FiPieChart, FiAlertCircle } from "react-icons/fi";
+import { FiMaximize2, FiDownload, FiCamera, FiPlay, FiPause, FiClock, FiZap, FiTarget, FiPieChart, FiAlertCircle, FiCheckCircle } from "react-icons/fi";
 import { useState, useEffect } from "react";
+import { FaPencilRuler } from "react-icons/fa";
 
 interface AnnotatedDefectImageProps {
   apiData?: any;
@@ -29,12 +30,24 @@ const AnnotatedDefectImage: React.FC<AnnotatedDefectImageProps> = ({ apiData }) 
   const [isPlaying, setIsPlaying] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [imageUrl, setImageUrl] = useState(defectData.annotatedImage);
+  const [defectInfo, setDefectInfo] = useState<any>(null);
+  const [positionCm, setPositionCm] = useState<number | null>(null);
+  const [frameNumber, setFrameNumber] = useState<number | null>(null);
+  const [pulseCount, setPulseCount] = useState<number | null>(null);
 
   useEffect(() => {
     if (apiData?.annotated_image) {
       setImageUrl(apiData.annotated_image);
+      setDefectInfo(apiData);
+      setPositionCm(apiData.position_cm || null);
+      setFrameNumber(apiData.frame_number || null);
+      setPulseCount(apiData.pulse_count || null);
     } else {
       setImageUrl(defectData.annotatedImage);
+      setDefectInfo(null);
+      setPositionCm(null);
+      setFrameNumber(null);
+      setPulseCount(null);
     }
   }, [apiData]);
 
@@ -61,7 +74,7 @@ const AnnotatedDefectImage: React.FC<AnnotatedDefectImageProps> = ({ apiData }) 
       const textColorClass = textColorMap[defect.type] || "bg-gray-500";
       
       return {
-        id: defect.id,
+        id: defect.id || index,
         label: `${defect.type} ${defect.confidence}`,
         x: bbox.x1 / 1920 * 100,
         y: bbox.y1 / 1080 * 100,
@@ -75,6 +88,7 @@ const AnnotatedDefectImage: React.FC<AnnotatedDefectImageProps> = ({ apiData }) 
   };
 
   const defectBoxes = getDefectBoxes();
+  const hasDefects = defectBoxes.length > 0;
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
@@ -83,8 +97,16 @@ const AnnotatedDefectImage: React.FC<AnnotatedDefectImageProps> = ({ apiData }) 
           <div>
             <h2 className="text-xl font-bold text-gray-900">Defect Visualization</h2>
             <p className="text-gray-600 text-sm mt-1">
-              {apiData ? "AI-annotated detection results" : "AI-annotated defect detection results"}
-              {apiData && ` • ${apiData.summary?.total_defects} defect(s) found`}
+              {apiData ? (
+                <>
+                  {hasDefects ? "AI-annotated detection results" : "No defects detected - Clean fabric"}
+                  {apiData.filename && ` • File: ${apiData.filename}`}
+                  {positionCm && ` • Pos: ${positionCm.toFixed(2)} cm`}
+                  {hasDefects && ` • ${apiData.summary?.total_defects} defect(s) found`}
+                </>
+              ) : (
+                "AI-annotated defect detection results"
+              )}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -126,7 +148,7 @@ const AnnotatedDefectImage: React.FC<AnnotatedDefectImageProps> = ({ apiData }) 
             <img
               src={imageUrl}
               className="w-full h-full object-cover"
-              alt="Annotated defect detection"
+              alt={hasDefects ? "Annotated defect detection" : "Clean fabric image"}
             />
             
             {defectBoxes.map((box: DefectBox) => (
@@ -146,6 +168,15 @@ const AnnotatedDefectImage: React.FC<AnnotatedDefectImageProps> = ({ apiData }) 
                 <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-current rounded-full animate-pulse"></div>
               </div>
             ))}
+            
+            {apiData && !hasDefects && (
+              <div className="absolute top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg">
+                <div className="flex items-center gap-2">
+                  <FiCheckCircle className="w-5 h-5" />
+                  <span className="font-medium">No Defects Detected</span>
+                </div>
+              </div>
+            )}
             
             {!apiData && (
               <>
@@ -168,8 +199,23 @@ const AnnotatedDefectImage: React.FC<AnnotatedDefectImageProps> = ({ apiData }) 
           <div className="absolute bottom-4 left-4 bg-black/80 text-white px-4 py-3 rounded-lg backdrop-blur-sm">
             <div className="text-xs opacity-80">{apiData ? "Processed Image" : "Live View"}</div>
             <div className="text-sm font-semibold">
-              {apiData?.defects?.[0]?.confidence || "Confidence: 94.2%"}
+              {hasDefects 
+                ? `Defects: ${defectBoxes.length}`
+                : apiData 
+                  ? "Clean Fabric"
+                  : "Confidence: 94.2%"
+              }
             </div>
+            {positionCm && (
+              <div className="text-xs opacity-70 mt-1">
+                Position: {positionCm.toFixed(2)} cm
+              </div>
+            )}
+            {apiData?.processing_time_ms && (
+              <div className="text-xs opacity-70">
+                Time: {apiData.processing_time_ms}ms
+              </div>
+            )}
           </div>
         </div>
 
@@ -222,6 +268,51 @@ const AnnotatedDefectImage: React.FC<AnnotatedDefectImageProps> = ({ apiData }) 
             </div>
           </div>
         </div>
+
+        {frameNumber && pulseCount && (
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2">
+                <FaPencilRuler className="w-4 h-4 text-blue-500" />
+                <span className="text-sm text-gray-600">Frame:</span>
+                <span className="text-sm font-medium text-gray-900">{frameNumber}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <FiZap className="w-4 h-4 text-purple-500" />
+                <span className="text-sm text-gray-600">Pulse:</span>
+                <span className="text-sm font-medium text-gray-900">{pulseCount}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {apiData?.summary && (
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <FiAlertCircle className={`w-4 h-4 ${hasDefects ? 'text-red-500' : 'text-green-500'}`} />
+                <span className="text-sm text-gray-600">Status:</span>
+                <span className={`text-sm font-medium ${hasDefects ? 'text-red-600' : 'text-green-600'}`}>
+                  {hasDefects ? 'Defects Found' : 'Defect Free'}
+                </span>
+              </div>
+              {hasDefects && (
+                <>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">Severity:</span>
+                    <span className="text-sm font-medium text-gray-900">{apiData.summary.overall_severity}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">Types:</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {apiData.summary.defect_types_found?.join(', ')}
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -144,7 +144,7 @@ Backend Setup:
 ```bash
 cd fabapi
 pip install -r requirements.txt
-uvicorn main:app --reload --host
+uvicorn app:socket_app --host 0.0.0.0 --port 8000 --reload
 ```
 
 Frontend Setup:

@@ -2,21 +2,22 @@
 
 import React, { useState } from "react";
 
+interface DefectRecord {
+  defect_type: string;
+  position_cm: number;
+  timestamp: string;
+}
+
 interface Props {
-  onSubmit: (sequence: number[][]) => void;
+  onSubmit: (defects: DefectRecord[]) => void;
 }
 
 const defaultJson = `[
-  [0.10, 2.0, 1.1, 0.3],
-  [0.12, 2.1, 1.2, 0.4],
-  [0.14, 2.0, 1.3, 0.5],
-  [0.16, 2.2, 1.2, 0.4],
-  [0.18, 2.1, 1.4, 0.6],
-  [0.20, 2.3, 1.5, 0.7],
-  [0.22, 2.4, 1.6, 0.8],
-  [0.24, 2.5, 1.7, 0.9],
-  [0.26, 2.6, 1.8, 1.0],
-  [0.28, 2.7, 1.9, 1.1]
+  {"defect_type":"hole","position_cm":47,"timestamp":"2026-05-01_14-29-34"},
+  {"defect_type":"hole","position_cm":62,"timestamp":"2026-05-01_14-29-40"},
+  {"defect_type":"hole","position_cm":77,"timestamp":"2026-05-01_14-29-45"},
+  {"defect_type":"hole","position_cm":92,"timestamp":"2026-05-01_14-29-50"},
+  {"defect_type":"hole","position_cm":107,"timestamp":"2026-05-01_14-29-55"}
 ]`;
 
 const SequenceInputPanel: React.FC<Props> = ({ onSubmit }) => {
@@ -26,9 +27,11 @@ const SequenceInputPanel: React.FC<Props> = ({ onSubmit }) => {
   const handleRun = () => {
     try {
       const parsed = JSON.parse(text);
-      if (!Array.isArray(parsed) || parsed.length !== 10) {
-        throw new Error("Sequence must contain exactly 10 rows");
+
+      if (!Array.isArray(parsed) || parsed.length < 5) {
+        throw new Error("Need at least 5 defect records");
       }
+
       onSubmit(parsed);
       setError("");
     } catch (e: any) {
@@ -39,7 +42,7 @@ const SequenceInputPanel: React.FC<Props> = ({ onSubmit }) => {
   return (
     <div className="bg-white p-6 rounded-xl border space-y-3">
       <h3 className="font-bold text-gray-800">
-        Input Detection Sequence (Last 10)
+        Recent Defects (Last 5+)
       </h3>
 
       <textarea
