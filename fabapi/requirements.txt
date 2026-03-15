@@ -1,6 +1,6 @@
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
-tensorflow==2.16.2
+tensorflow-cpu==2.16.1
 numpy==1.26.4
 python-dotenv==1.0.0
 python-multipart==0.0.6
