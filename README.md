@@ -111,9 +111,201 @@ Why it matters:
 
 <hr>
 
-## **_Component 2 – Title_**
+# Component 2 – Edge-Level Fabric Image Enhancement & Pattern-Aware Processing
 
-### Add Details about Component 2 here
+Component 2 focuses on improving the visual quality of fabric images before defect detection. The module performs fabric pattern analysis, image quality assessment, and adaptive enhancement to ensure that downstream defect detection models receive clear, consistent, and high-quality images.
+
+---
+
+## Component 2 Workflow (3 Novelty Stages)
+
+### Stage 1: Pattern-Aware Fabric Classification (Novelty 1)
+
+**Goal:** Identify whether a fabric is patterned or non-patterned and determine the specific pattern category.
+
+#### How it works:
+
+- Incoming fabric frames are received from Component 1.
+- A lightweight CNN-based binary classifier first determines whether the fabric contains patterns.
+- If the fabric is classified as patterned, a second EfficientNetB0-based multi-class classifier identifies the pattern type.
+- Supported pattern categories include:
+  - Stripe
+  - Check
+  - Floral
+  - Geometric
+
+#### Outputs:
+
+- Fabric category (Patterned / Non-Patterned)
+- Pattern type prediction
+- Confidence score
+- Pattern metadata for enhancement selection
+
+#### Why it matters:
+
+- Different fabric patterns require different enhancement strategies.
+- Prevents over-enhancement that could distort pattern structures.
+- Enables context-aware preprocessing for improved inspection accuracy.
+
+---
+
+### Stage 2: Image Quality Assessment & Fabric Analysis (Novelty 2)
+
+**Goal:** Evaluate image quality and fabric characteristics before enhancement.
+
+#### How it works:
+
+- Multiple image quality metrics are calculated for each frame.
+- The system evaluates:
+  - Brightness
+  - Contrast
+  - Sharpness
+  - Noise level
+  - Color consistency
+- A Fabric Quality Index (FQI) is generated to represent overall image quality.
+- Fabric characteristics and quality scores are used to determine the most suitable enhancement pipeline.
+
+#### Outputs:
+
+- Brightness score
+- Contrast score
+- Sharpness score
+- Noise estimation
+- Fabric Quality Index (FQI)
+
+#### Why it matters:
+
+- Prevents unnecessary processing of already high-quality images.
+- Provides quantitative measurements for enhancement decisions.
+- Ensures enhancement is applied only when required.
+
+---
+
+### Stage 3: Adaptive Pattern-Aware Enhancement Pipeline (Novelty 3)
+
+**Goal:** Improve image quality while preserving fabric texture and pattern information.
+
+#### How it works:
+
+- Enhancement strategy is selected dynamically based on:
+  - Fabric category
+  - Pattern type
+  - Quality metrics
+- The enhancement pipeline may include:
+  - Contrast enhancement (CLAHE)
+  - Brightness correction
+  - Noise reduction
+  - Edge-preserving sharpening
+  - Color normalization
+- Patterned fabrics receive texture-preserving enhancement to avoid distortion.
+- Non-patterned fabrics receive stronger enhancement when required.
+
+#### Enhancement Decisions:
+
+| Fabric Type | Enhancement Strategy |
+|------------|----------------------|
+| Non-Patterned | Aggressive contrast and sharpness enhancement |
+| Stripe | Edge-preserving enhancement |
+| Check | Texture-preserving contrast enhancement |
+| Floral | Balanced color and texture enhancement |
+| Geometric | Structure-aware sharpening |
+
+#### Outputs:
+
+- Enhanced fabric image
+- Updated quality metrics
+- Enhancement metadata
+- Processed frame for defect detection
+
+#### Why it matters:
+
+- Improves visibility of fabric defects.
+- Preserves important texture information.
+- Enhances downstream defect detection accuracy.
+- Maintains real-time processing performance on edge devices.
+
+---
+
+## Data Logging & Monitoring
+
+The module continuously records processing information including:
+
+- Pattern classification results
+- Confidence scores
+- Quality metrics
+- Enhancement mode selected
+- Processing time per frame
+- System performance statistics
+
+Generated logs support system monitoring and future model improvements.
+
+---
+
+## Pipeline Integration
+
+### Input
+
+Receives filtered fabric frames from **Component 1**.
+
+### Processing
+
+1. Pattern Classification
+2. Quality Assessment
+3. Adaptive Enhancement
+
+### Output
+
+Enhanced and optimized fabric images are forwarded to **Component 3 – Defect Detection & Localization**.
+
+---
+
+## Software Environment & Tools
+
+### Development Frameworks
+
+- Python 3.10+
+- TensorFlow / Keras
+- OpenCV
+- NumPy
+  
+### Deep Learning Models
+
+- CNN Binary Classifier
+- EfficientNetB0 Multi-Class Classifier
+
+### Deployment Environment
+
+- Raspberry Pi 4 Model B
+- Edge/Fog Computing Layer
+
+---
+
+## Key Contributions
+
+✅ Pattern-aware fabric classification
+
+✅ Multi-stage adaptive image enhancement
+
+✅ Real-time edge-level processing
+
+✅ Fabric Quality Index (FQI) assessment
+
+✅ Texture-preserving enhancement for patterned fabrics
+
+✅ Improved downstream defect detection performance
+
+✅ Lightweight deployment on Raspberry Pi edge devices
+
+---
+
+## Expected Benefits
+
+- Improved image quality under varying lighting conditions
+- Reduced noise and visual inconsistencies
+- Better defect visibility
+- Higher defect detection accuracy
+- Lower computational overhead
+- Real-time industrial deployment capability
 
 <hr>
 
