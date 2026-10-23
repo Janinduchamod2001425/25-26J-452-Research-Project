@@ -12,7 +12,7 @@ NON_DEFECT_FOLDER = os.getenv("NON_DEFECT_FOLDER", os.path.join(DRIVE_PATH, "non
 PROCESSED_FOLDER = os.getenv("PROCESSED_FOLDER", os.path.join(DRIVE_PATH, "processed"))
 
 # MongoDB Configuration
-MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://thisarajasonpaypal_db_user:1IkJ3AIcFqe5ZivC@cluster0.abr7w5e.mongodb.net/?appName=Cluster0")
+MONGO_URI = os.getenv("MONGO_URI", "")
 MONGO_DB = os.getenv("MONGO_DB", "fabric_defect_db")
 MONGO_COLLECTION = os.getenv("MONGO_COLLECTION", "detections")
 MONGO_STATS_COLLECTION = os.getenv("MONGO_STATS_COLLECTION", "statistics") 
